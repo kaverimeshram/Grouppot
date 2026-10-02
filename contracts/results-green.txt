@@ -1,0 +1,25 @@
+Ran 16 tests for test/Circle.t.sol:CircleTest
+[PASS] testFuzz_anyDefaultPattern_conservedNoProfitNothingStuck(uint256) (runs: 256, μ: 4303349, ~: 4296330)
+[PASS] test_cancelledAuthorizationIsADefault() (gas: 3022269)
+[PASS] test_collectAndVanish_anySlot_nobodyElseLoses(uint8) (runs: 256, μ: 4206401, ~: 4199322)
+[PASS] test_defaultBeforeTurn_collectThenVanish_clampCoversTheRest() (gas: 4306472)
+[PASS] test_fullCycle_gaslessForMembers_eachPaidOnce_allNetZero() (gas: 4149330)
+  gas join slot 0 (5 members, 4 standing orders) 576888
+  gas collect (5 pulls) 325100
+  gas payout 20814
+  gas collect (5 pulls) 325117
+  gas collect (5 pulls) 325123
+  gas collect (5 pulls) 325123
+[PASS] test_join_inviteBoundToMemberAndSlot() (gas: 66054)
+[PASS] test_join_payAuthMustCoverSetAsidePlusRound() (gas: 546214)
+[PASS] test_join_rejectsScheduleThatWouldNeverPay() (gas: 163557)
+[PASS] test_join_rejectsWrongInviteKey() (gas: 63535)
+[PASS] test_join_slotTakenAndDoubleJoinAndAfterStart() (gas: 2646912)
+[PASS] test_lastSlotDefaults_victimsRepaidFromItsOwnPayout_honestNetZero() (gas: 4336590)
+[PASS] test_lateTopUp_manualPay_thenStandingOrderCannotDoubleCharge() (gas: 3054537)
+[PASS] test_lowGasCallerCannotForceADefault() (gas: 3085985)
+[PASS] test_missedRound_coveredFromSetAside_flagged_recipientWhole() (gas: 3058784)
+[PASS] test_payoutAndCollectRespectTheCalendar() (gas: 2977350)
+[PASS] test_round0PaysOutTheMomentTheCircleFills() (gas: 2635643)
+Suite result: ok. 16 passed; 0 failed; 0 skipped; finished in 3.11s (6.24s CPU time)
+Ran 1 test suite in 3.58s (3.11s CPU time): 16 tests passed, 0 failed, 0 skipped (16 total tests)

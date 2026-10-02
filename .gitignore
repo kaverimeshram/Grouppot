@@ -1,0 +1,13 @@
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+.secrets/
+demo/.wallets.json
+relayer/data/
+web/.next/
+web/out/
+web/node_modules/
+relayer/node_modules/
+node_modules/
+.env*
+.progress/

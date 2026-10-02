@@ -1,0 +1,28 @@
+== mutant no-debt
+Ran 16 tests for test/Circle.t.sol:CircleTest
+[FAIL: single defaulter: honest nets zero: 95000000 != 100000000; counterexample: calldata=0x6efa74b30000000000000003317d62fcf8053da68b760c7f5324c8578df3c665bdddd25d args=[2004479136747935046365817944
+[FAIL: honest members net zero: 95000000 != 100000000] test_defaultBeforeTurn_collectThenVanish_clampCoversTheRest() (gas: 4374257)
+[FAIL: honest members net zero: 95000000 != 100000000] test_lastSlotDefaults_victimsRepaidFromItsOwnPayout_honestNetZero() (gas: 4328709)
+Suite result: FAILED. 13 passed; 3 failed; 0 skipped; finished in 1.43s (1.88s CPU time)
+Ran 1 test suite in 1.88s (1.43s CPU time): 13 tests passed, 3 failed, 0 skipped (16 total tests)
+[FAIL: single defaulter: honest nets zero: 95000000 != 100000000; counterexample: calldata=0x6efa74b30000000000000003317d62fcf8053da68b760c7f5324c8578df3c665bdddd25d args=[2004479136747935046365817944
+[FAIL: honest members net zero: 95000000 != 100000000] test_defaultBeforeTurn_collectThenVanish_clampCoversTheRest() (gas: 4374257)
+[FAIL: honest members net zero: 95000000 != 100000000] test_lastSlotDefaults_victimsRepaidFromItsOwnPayout_honestNetZero() (gas: 4328709)
+== mutant no-cap
+Ran 16 tests for test/Circle.t.sol:CircleTest
+[FAIL: honest members net zero: 95000000 != 100000000] test_defaultBeforeTurn_collectThenVanish_clampCoversTheRest() (gas: 4470449)
+Suite result: FAILED. 15 passed; 1 failed; 0 skipped; finished in 2.05s (5.05s CPU time)
+Ran 1 test suite in 2.52s (2.05s CPU time): 15 tests passed, 1 failed, 0 skipped (16 total tests)
+[FAIL: honest members net zero: 95000000 != 100000000] test_defaultBeforeTurn_collectThenVanish_clampCoversTheRest() (gas: 4470449)
+== mutant no-gas-guard
+Ran 16 tests for test/Circle.t.sol:CircleTest
+[FAIL: starved payout reverts] test_lowGasCallerCannotForceADefault() (gas: 2983201)
+Suite result: FAILED. 15 passed; 1 failed; 0 skipped; finished in 2.55s (5.94s CPU time)
+Ran 1 test suite in 3.02s (2.55s CPU time): 15 tests passed, 1 failed, 0 skipped (16 total tests)
+[FAIL: starved payout reverts] test_lowGasCallerCannotForceADefault() (gas: 2983201)
+== mutant no-schedule-check
+Ran 16 tests for test/Circle.t.sol:CircleTest
+[FAIL: next call did not revert as expected] test_join_rejectsScheduleThatWouldNeverPay() (gas: 577686)
+Suite result: FAILED. 15 passed; 1 failed; 0 skipped; finished in 2.62s (5.24s CPU time)
+Ran 1 test suite in 3.25s (2.62s CPU time): 15 tests passed, 1 failed, 0 skipped (16 total tests)
+[FAIL: next call did not revert as expected] test_join_rejectsScheduleThatWouldNeverPay() (gas: 577686)
