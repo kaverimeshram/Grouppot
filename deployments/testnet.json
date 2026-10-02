@@ -1,8 +1,8 @@
 {
   "chainId": 10143,
-  "factory": "0xef3c218f4d397b74ba6fdc3d6134cca47cefc159",
+  "factory": "0xc8dc1ac9fdfd856b367c0d1975eaf084b4b773bf",
   "token": "0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC",
-  "deployTx": "0x672871484aa7c7cea1765e7bba18020a62c4c65b6a83b4b8a205903dcf8dcc6b",
-  "block": 67511357,
+  "deployTx": "0x673d3020d6d6de2c6ed8cadcc7fbcfe4b91edc8980f522291ce9f21cf3bc5368",
+  "block": 67543045,
   "relayer": "0xC502C7F2A104c35B41E8b3537d0A4818B8079469"
 }

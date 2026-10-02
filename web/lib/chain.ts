@@ -14,7 +14,7 @@ import {
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { circleAbi, factoryAbi } from "./abi";
-import { DEPLOYMENT } from "./deployment";
+import { DEPLOYMENT, EARLIER_FACTORIES } from "./deployment";
 
 export const RPC = process.env.NEXT_PUBLIC_MONAD_RPC ?? "https://testnet-rpc.monad.xyz";
 export const chain = {
@@ -58,8 +58,22 @@ export async function balanceOf(who: Address): Promise<bigint> {
   return publicClient.readContract({ address: TOKEN, abi: erc20Abi, functionName: "balanceOf", args: [who] });
 }
 
+export const FACTORIES = [FACTORY, ...(EARLIER_FACTORIES as readonly Address[])];
+
 export async function isCircle(circle: Address): Promise<boolean> {
-  return publicClient.readContract({ address: FACTORY, abi: factoryAbi, functionName: "isCircle", args: [circle] });
+  for (const address of FACTORIES) {
+    if (await publicClient.readContract({ address, abi: factoryAbi, functionName: "isCircle", args: [circle] })) return true;
+  }
+  return false;
+}
+
+/// The join payment's nonce. Circles from the first factory bind it to the member alone; later ones also count rejoins.
+async function joinNonceFor(circle: Address, member: Address): Promise<Hex> {
+  try {
+    return await publicClient.readContract({ address: circle, abi: circleAbi, functionName: "joinNonce", args: [member] });
+  } catch {
+    return nonceFor(circle, JOIN, member);
+  }
 }
 
 // ---------- signatures ----------
@@ -124,7 +138,7 @@ export async function joinBundle(account: LocalAccount, inviteKey: Hex, circle: 
   const now = BigInt(Math.floor(Date.now() / 1000));
   const payValidBefore = now + 3600n;
   const invite = await signInvite(inviteKey, circle.address, BigInt(slot), account.address);
-  const pay = await signReceive(account, circle.address, 2n * circle.contribution, payValidBefore, nonceFor(circle.address, JOIN, account.address));
+  const pay = await signReceive(account, circle.address, 2n * circle.contribution, payValidBefore, await joinNonceFor(circle.address, account.address));
   const rounds: Sig[] = [];
   for (let r = 1n; r < circle.size; r++) {
     rounds.push(await signReceive(account, circle.address, circle.contribution, MAX, nonceFor(circle.address, r, account.address)));
@@ -143,6 +157,20 @@ export async function contributeBundle(account: LocalAccount, circle: Snapshot) 
   const validBefore = BigInt(Math.floor(Date.now() / 1000)) + 3600n;
   const sig = await signReceive(account, circle.address, circle.contribution, validBefore, nonceFor(circle.address, circle.round, account.address));
   return { circle: circle.address, member: account.address, validBefore: validBefore.toString(), sig };
+}
+
+/// Leave a circle that has not filled yet: everything paid in comes back. Signs Circle.leaveDigest's inner hash.
+export async function leaveBundle(account: LocalAccount, circle: Address) {
+  const joins = await publicClient.readContract({ address: circle, abi: circleAbi, functionName: "joins", args: [account.address] });
+  const inner = keccak256(encodeAbiParameters(parseAbiParameters("address, string, address, uint256"), [circle, "leave", account.address, joins]));
+  return { circle, member: account.address, sig: split(await account.signMessage({ message: { raw: inner } })) };
+}
+
+/// The organiser takes her guarantee back before the circle fills. Signs Circle.bondExitDigest's inner hash.
+export async function unbondBundle(account: LocalAccount, circle: Address) {
+  const bondAdds = await publicClient.readContract({ address: circle, abi: circleAbi, functionName: "bondAdds" });
+  const inner = keccak256(encodeAbiParameters(parseAbiParameters("address, string, uint256"), [circle, "bond-exit", bondAdds]));
+  return { circle, sig: split(await account.signMessage({ message: { raw: inner } })) };
 }
 
 // ---------- relayer ----------

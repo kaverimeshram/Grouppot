@@ -3,6 +3,8 @@
 //   POST /api/join      invite + pay + standing orders     -> Circle.join
 //   POST /api/contribute  a fresh authorization for the round -> Circle.contribute
 //   POST /api/bond      organiser's guarantee top-up       -> Circle.addBond
+//   POST /api/leave     member leaves before the circle fills -> Circle.leave
+//   POST /api/unbond    organiser takes the guarantee back before start -> Circle.withdrawBond
 //   POST /api/practice  testnet only: practice dollars, once per address per circle
 //   GET  /api/health
 // Keeper, every KEEPER_MS: pulls standing orders when a round opens, pays out when a round is full or due, and returns
@@ -17,6 +19,7 @@ import {
   createPublicClient,
   createWalletClient,
   erc20Abi,
+  fallback,
   http,
   isAddress,
   type Address,
@@ -24,24 +27,31 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { circleAbi, factoryAbi } from "../web/lib/abi";
-import { DEPLOYMENT } from "../web/lib/deployment";
+import { DEPLOYMENT, EARLIER_FACTORIES } from "../web/lib/deployment";
 
 const ROOT = path.resolve(import.meta.dir, "..");
 const PORT = Number(process.env.PORT ?? 3411);
-const RPC = process.env.MONAD_TESTNET_RPC_URL ?? "https://testnet-rpc.monad.xyz";
+const RPC = process.env.MONAD_TESTNET_RPC_URL || "https://testnet-rpc.monad.xyz";
 const KEEPER_MS = Number(process.env.KEEPER_MS ?? 20_000);
 const ORIGINS = (process.env.ALLOWED_ORIGINS ?? "http://localhost:3410").split(",");
 const PRACTICE_PER_ADDRESS = 120_000_000n; // $120 across all circles
 const PERIODS = new Set([600, 3600, 86_400, 604_800, 1_209_600, 2_592_000]);
 const DATA = path.join(ROOT, "relayer/data");
 const FACTORY = DEPLOYMENT.factory as Address;
+const FACTORIES = [FACTORY, ...(EARLIER_FACTORIES as readonly Address[])];
 const TOKEN = DEPLOYMENT.token as Address;
 
 const chain = { id: DEPLOYMENT.chainId, name: "Monad Testnet", nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 }, rpcUrls: { default: { http: [RPC] } } } as const;
 const { key } = JSON.parse(fs.readFileSync(path.join(ROOT, ".secrets/relayer.json"), "utf8")) as { key: Hex };
 const account = privateKeyToAccount(key);
-const pub = createPublicClient({ chain, transport: http(RPC, { retryCount: 4, retryDelay: 500 }) });
-const wallet = createWalletClient({ account, chain, transport: http(RPC, { retryCount: 2, retryDelay: 500 }) });
+// Private RPC first when the host provides one, the public endpoint as fallback: the public one drops reads under load.
+const PUBLIC_RPC = "https://testnet-rpc.monad.xyz";
+const transport = () =>
+  RPC === PUBLIC_RPC
+    ? http(RPC, { retryCount: 4, retryDelay: 500 })
+    : fallback([http(RPC, { retryCount: 2, retryDelay: 300 }), http(PUBLIC_RPC, { retryCount: 3, retryDelay: 500 })]);
+const pub = createPublicClient({ chain, transport: transport() });
+const wallet = createWalletClient({ account, chain, transport: transport() });
 
 fs.mkdirSync(DATA, { recursive: true });
 const practiceFile = path.join(DATA, "practice.json");
@@ -63,10 +73,25 @@ type Call = { address: Address; abi: typeof circleAbi | typeof factoryAbi | type
 /// Simulate, send with a gas limit 15% above the estimate (Monad charges the limit), and wait for a successful receipt.
 async function send(call: Call): Promise<{ hash: Hex; result: unknown; logs: readonly { address: Address; topics: readonly Hex[]; data: Hex }[] }> {
   return serial(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sim = await pub.simulateContract({ ...(call as any), account });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gas = await pub.estimateContractGas({ ...(call as any), account });
+    // reads before broadcast are safe to retry on a dropped request; a revert is final
+    const prepare = async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sim = await pub.simulateContract({ ...(call as any), account });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const gas = await pub.estimateContractGas({ ...(call as any), account });
+      return { sim, gas };
+    };
+    let prepared: Awaited<ReturnType<typeof prepare>> | undefined;
+    for (let attempt = 1; !prepared; attempt++) {
+      try {
+        prepared = await prepare();
+      } catch (e) {
+        const reverted = e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError);
+        if (reverted || attempt >= 4) throw e;
+        await new Promise((r) => setTimeout(r, 600 * attempt));
+      }
+    }
+    const { sim, gas } = prepared;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const hash = await wallet.writeContract({ ...(sim.request as any), gas: (gas * 115n) / 100n });
     const r = await pub.waitForTransactionReceipt({ hash, timeout: 90_000 });
@@ -101,8 +126,8 @@ const addr = (x: unknown): Address => {
 
 async function knownCircle(x: unknown): Promise<Address> {
   const c = addr(x);
-  if (!(await pub.readContract({ address: FACTORY, abi: factoryAbi, functionName: "isCircle", args: [c] }))) throw new Error("not a grouppot circle");
-  return c;
+  for (const f of FACTORIES) if (await pub.readContract({ address: f, abi: factoryAbi, functionName: "isCircle", args: [c] })) return c;
+  throw new Error("not a grouppot circle");
 }
 
 const createdBy = new Map<string, number[]>();
@@ -163,6 +188,22 @@ const routes: Record<string, (b: Record<string, unknown>, ip: string) => Promise
     const { hash } = await send({ address: circle, abi: circleAbi, functionName: "contribute", args: [addr(b.member), 0n, big(b.validBefore), b.sig] });
     log("contribute", circle, b.member, hash);
     kick(circle);
+    return { hash, circle };
+  },
+
+  async leave(b) {
+    const circle = await knownCircle(b.circle);
+    if (!isSig(b.sig)) throw new Error("bad signature");
+    const { hash } = await send({ address: circle, abi: circleAbi, functionName: "leave", args: [addr(b.member), b.sig] });
+    log("leave", circle, b.member, hash);
+    return { hash, circle };
+  },
+
+  async unbond(b) {
+    const circle = await knownCircle(b.circle);
+    if (!isSig(b.sig)) throw new Error("bad signature");
+    const { hash } = await send({ address: circle, abi: circleAbi, functionName: "withdrawBond", args: [b.sig] });
+    log("unbond", circle, hash);
     return { hash, circle };
   },
 
@@ -243,8 +284,11 @@ async function tend(circle: Address) {
 
 const finished = new Set<Address>();
 async function keeperPass() {
-  const n = await pub.readContract({ address: FACTORY, abi: factoryAbi, functionName: "count" });
-  const all = await pub.readContract({ address: FACTORY, abi: factoryAbi, functionName: "page", args: [0n, n] });
+  const all: Address[] = [];
+  for (const f of FACTORIES) {
+    const n = await pub.readContract({ address: f, abi: factoryAbi, functionName: "count" });
+    all.push(...(await pub.readContract({ address: f, abi: factoryAbi, functionName: "page", args: [0n, n] })));
+  }
   for (const circle of [...new Set([...kicked, ...all])]) {
     if (finished.has(circle)) continue;
     kicked.delete(circle);
@@ -285,7 +329,7 @@ const server = Bun.serve({
         pub.readContract({ address: TOKEN, abi: erc20Abi, functionName: "balanceOf", args: [account.address] }),
         pub.readContract({ address: FACTORY, abi: factoryAbi, functionName: "count" }),
       ]);
-      return Response.json({ ok: true, factory: FACTORY, circles: Number(count), gasReserveMon: Number(mon) / 1e18, practiceDollars: Number(usd) / 1e6 }, { headers });
+      return Response.json({ ok: true, rpc: RPC === PUBLIC_RPC ? "public" : "private", factory: FACTORY, circles: Number(count), gasReserveMon: Number(mon) / 1e18, practiceDollars: Number(usd) / 1e6 }, { headers });
     }
     const name = url.pathname.replace(/^\/api\//, "").replace(/\/$/, "");
     const route = req.method === "POST" ? routes[name] : undefined;
