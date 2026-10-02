@@ -22,6 +22,7 @@ import {
   fallback,
   http,
   isAddress,
+  parseAbi,
   type Address,
   type Hex,
 } from "viem";
@@ -319,8 +320,44 @@ async function keeperPass() {
   }
 }
 
+// ---------- reserves: practice dollars refill themselves, gas raises an alert ----------
+
+const GAS_FLOOR = 2n * 10n ** 18n; // 2 MON, about one 5-person circle with a margin
+const PRACTICE_FLOOR = 200_000_000n; // $200
+const AGORA_FAUCET = "0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C" as Address;
+let lastAlert = 0;
+
+async function reserves() {
+  const [mon, usd] = await Promise.all([
+    pub.getBalance({ address: account.address }),
+    pub.readContract({ address: TOKEN, abi: erc20Abi, functionName: "balanceOf", args: [account.address] }),
+  ]);
+  const low: string[] = [];
+  if (mon < GAS_FLOOR) low.push("gas");
+  if (usd < PRACTICE_FLOOR) low.push("practice");
+  return { mon, usd, low };
+}
+
+async function tendReserves() {
+  const r = await reserves();
+  if (r.low.includes("practice")) {
+    try {
+      const { hash } = await send({ address: AGORA_FAUCET, abi: parseAbi(["function requestFunds(address)"]), functionName: "requestFunds", args: [account.address] });
+      log("practice treasury refilled from the Agora faucet", hash);
+    } catch (e) {
+      log("ALERT practice treasury low and the faucet refused:", reason(e));
+    }
+  }
+  if (r.low.includes("gas") && Date.now() - lastAlert > 3_600_000) {
+    lastAlert = Date.now();
+    log(`ALERT gas reserve ${Number(r.mon) / 1e18} MON is under ${Number(GAS_FLOOR) / 1e18}: top up ${account.address} at faucet.monad.xyz`);
+  }
+}
+
 let keeping = false;
 if (!KEEPER_OFF) {
+  setInterval(() => void tendReserves().catch((e) => log("reserves", reason(e))), 300_000);
+  void tendReserves().catch((e) => log("reserves", reason(e)));
   setInterval(async () => {
     if (keeping) return;
     keeping = true;
@@ -406,7 +443,7 @@ const server = Bun.serve({
         pub.readContract({ address: TOKEN, abi: erc20Abi, functionName: "balanceOf", args: [account.address] }),
         pub.readContract({ address: FACTORY, abi: factoryAbi, functionName: "count" }),
       ]);
-      return Response.json({ ok: true, rpc: RPC === PUBLIC_RPC ? "public" : "private", factory: FACTORY, circles: Number(count), keeper: !KEEPER_OFF, telegram: telegram?.ready() ?? false, gasReserveMon: Number(mon) / 1e18, practiceDollars: Number(usd) / 1e6 }, { headers });
+      return Response.json({ ok: true, rpc: RPC === PUBLIC_RPC ? "public" : "private", factory: FACTORY, circles: Number(count), keeper: !KEEPER_OFF, telegram: telegram?.ready() ?? false, gasReserveMon: Number(mon) / 1e18, practiceDollars: Number(usd) / 1e6, low: [mon < GAS_FLOOR ? "gas" : "", usd < PRACTICE_FLOOR ? "practice" : ""].filter(Boolean) }, { headers });
     }
     const name = url.pathname.replace(/^\/api\//, "").replace(/\/$/, "");
     const route = req.method === "POST" ? routes[name] : undefined;
