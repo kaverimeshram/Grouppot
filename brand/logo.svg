@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<rect width="1024" height="1024" fill="#0e0f0c"/>
+<path d="M621.41 206.39A240 240 0 0 1 698.49 268.94" fill="none" stroke="#9fe870" stroke-width="51.2" stroke-linecap="round"/>
+<path d="M751.67 432.6A240 240 0 0 1 713.3 550.68" fill="none" stroke="#9fe870" stroke-width="51.2" stroke-linecap="round"/>
+<path d="M574.08 651.83A240 240 0 0 1 449.92 651.83" fill="none" stroke="#9fe870" stroke-width="51.2" stroke-linecap="round"/>
+<path d="M310.7 550.68A240 240 0 0 1 272.33 432.6" fill="none" stroke="#9fe870" stroke-width="51.2" stroke-linecap="round"/>
+<path d="M325.51 268.94A240 240 0 0 1 402.59 206.39" fill="none" stroke="#c4c9c0" stroke-width="28.67" stroke-linecap="round" stroke-dasharray="0.1 53.76"/>
+<circle cx="512" cy="420" r="102.4" fill="#9fe870"/>
+<circle cx="740.25" cy="345.84" r="46.4" fill="#9fe870" stroke="#9fe870" stroke-width="8"/>
+<circle cx="653.07" cy="614.16" r="46.4" fill="#9fe870" stroke="#9fe870" stroke-width="8"/>
+<circle cx="370.93" cy="614.16" r="46.4" fill="#9fe870" stroke="#9fe870" stroke-width="8"/>
+<circle cx="283.75" cy="345.84" r="46.4" fill="#0e0f0c" stroke="#c4c9c0" stroke-width="8"/>
+<circle cx="512" cy="180" r="72" fill="#ffffff"/>
+<circle cx="512" cy="180" r="30.24" fill="#9fe870"/>
+<text x="512" y="900" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="150" letter-spacing="-4.5" fill="#ffffff">grouppot</text>
+</svg>
