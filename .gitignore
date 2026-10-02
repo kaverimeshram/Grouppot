@@ -12,3 +12,8 @@ node_modules/
 .env*
 .progress/
 dist/
+web/AGENTS.md
+web/CLAUDE.md
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo
+contracts/lib/

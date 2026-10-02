@@ -1,5 +1,5 @@
 Ran 17 tests for test/Circle.t.sol:CircleTest
-[PASS] testFuzz_anyDefaultPattern(uint256) (runs: 256, μ: 4445074, ~: 4448152)
+[PASS] testFuzz_anyDefaultPattern(uint256) (runs: 256, μ: 4431841, ~: 4430809)
 [PASS] test_bond_onlyTheOrganisersSignature_andLockedUntilEveryoneIsBack() (gas: 4233257)
 [PASS] test_cancelledAuthorizationIsADefault() (gas: 2926516)
 [PASS] test_collectAndVanish_guaranteeMakesEveryoneElseWhole() (gas: 4480452)
@@ -22,5 +22,5 @@ Ran 17 tests for test/Circle.t.sol:CircleTest
 [PASS] test_lowGasCallerCannotForceADefault() (gas: 3009050)
 [PASS] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 4334955)
 [PASS] test_payoutAndCollectRespectTheCalendar() (gas: 2901117)
-Suite result: ok. 17 passed; 0 failed; 0 skipped; finished in 4.45s (4.90s CPU time)
-Ran 1 test suite in 5.00s (4.45s CPU time): 17 tests passed, 0 failed, 0 skipped (17 total tests)
+Suite result: ok. 17 passed; 0 failed; 0 skipped; finished in 4.30s (8.41s CPU time)
+Ran 1 test suite in 4.81s (4.30s CPU time): 17 tests passed, 0 failed, 0 skipped (17 total tests)
