@@ -106,8 +106,12 @@ contract Circle {
     mapping(address => Debt[]) internal debts;
     mapping(address => uint256) internal debtHead;
     mapping(address => bool) public returned;
+    /// How many times each address has joined, so a member who left can join again with a fresh authorization.
+    mapping(address => uint256) public joins;
 
     event Joined(address indexed member, uint256 slot);
+    event Left(address indexed member, uint256 slot, uint256 refunded);
+    event BondWithdrawn(uint256 amount);
     event Started(uint256 at);
     event BondAdded(uint256 amount, uint256 total);
     event Contributed(uint256 indexed round, address indexed member);
@@ -167,6 +171,22 @@ contract Circle {
         return keccak256(abi.encode(address(this), rd, member));
     }
 
+    /// ERC-3009 nonce for `member`'s next join payment.
+    function joinNonce(address member) public view returns (bytes32) {
+        return keccak256(abi.encode(address(this), JOIN, member, joins[member]));
+    }
+
+    /// Digest (EIP-191) a member signs to leave before the circle starts. Bound to this membership, so a member who
+    /// leaves and joins again cannot be pushed out by the old signature.
+    function leaveDigest(address member) public view returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(abi.encode(address(this), "leave", member, joins[member]))));
+    }
+
+    /// Digest (EIP-191) the organiser signs to take her guarantee back before the circle starts.
+    function bondExitDigest() public view returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(abi.encode(address(this), "bond-exit", bondAdds))));
+    }
+
     /// ERC-3009 nonce for the organiser's next guarantee top-up.
     function bondNonce() public view returns (bytes32) {
         return keccak256(abi.encode(address(this), "bond", bondAdds));
@@ -223,7 +243,40 @@ contract Circle {
             start = block.timestamp;
             emit Started(block.timestamp);
         }
-        token.receiveWithAuthorization(member, address(this), joinAmount(), 0, payValidBefore, nonceFor(JOIN, member), pay.v, pay.r, pay.s);
+        bytes32 nonce = joinNonce(member);
+        joins[member]++;
+        token.receiveWithAuthorization(member, address(this), joinAmount(), 0, payValidBefore, nonce, pay.v, pay.r, pay.s);
+    }
+
+    /// Before the circle fills, a member may leave with everything they put in; their place opens again. Gasless: the
+    /// member signs leaveDigest(member) and anyone submits it. Their unused standing orders are dropped.
+    function leave(address member, Sig calldata sig) external {
+        require(start == 0, "Circle:started");
+        uint256 slot = slotOf(member);
+        require(_recover(leaveDigest(member), sig) == member, "Circle:sig");
+        uint256 amount = cash[member] + reserveBal[member];
+        members[slot] = address(0);
+        slotPlusOne[member] = 0;
+        joined--;
+        paid[0][member] = false;
+        paidCount[0]--;
+        cash[member] = 0;
+        reserveBal[member] = 0;
+        for (uint256 r = 1; r < size; r++) delete standing[member][r];
+        emit Left(member, slot, amount);
+        require(token.transfer(member, amount), "Circle:push");
+    }
+
+    /// Before the circle fills, the organiser may take her guarantee back (signed bondExitDigest()).
+    function withdrawBond(Sig calldata sig) external {
+        require(start == 0, "Circle:started");
+        require(_recover(bondExitDigest(), sig) == organiser, "Circle:sig");
+        bondAdds++;
+        uint256 amount = bond;
+        bond = 0;
+        bondPosted = 0;
+        emit BondWithdrawn(amount);
+        if (amount > 0) require(token.transfer(organiser, amount), "Circle:push");
     }
 
     // ---------- rounds ----------

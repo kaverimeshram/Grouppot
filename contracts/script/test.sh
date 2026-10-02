@@ -25,5 +25,6 @@ mutant no-guarantee 's/uint256 fromGuarantee = bond < gap \? bond : gap;/uint256
 mutant no-repay-from-pot 's/amount -= _settle\(to, amount\);//'
 mutant no-victim-debt 's/if \(gap > 0\) debts\[m\]\.push\(Debt\(to, gap\)\);//'
 mutant no-gas-guard 's/require\(gasleft\(\) > PULL_GAS \+ PULL_GAS \/ 63 \+ 50_000, "Circle:gas"\);//'
+mutant no-leave-sig 's/require\(_recover\(leaveDigest\(member\), sig\) == member, "Circle:sig"\);//'
 mutant no-schedule-check 's/require\(_recover\(keccak256[^;]*schedule-sig"\);//'
 } | tee results-mutants.txt

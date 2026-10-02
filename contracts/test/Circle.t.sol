@@ -77,7 +77,7 @@ contract CircleTest is Test {
 
     function _join(uint256 i) internal {
         Circle.Sig memory invite = _sig(inviteKey, circle.inviteDigest(i, m[i]));
-        Circle.Sig memory pay = _sig(pk[i], _authDigest(m[i], circle.joinAmount(), block.timestamp + 1 hours, circle.nonceFor(JOIN, m[i])));
+        Circle.Sig memory pay = _sig(pk[i], _authDigest(m[i], circle.joinAmount(), block.timestamp + 1 hours, circle.joinNonce(m[i])));
         Circle.Sig[] memory rounds = _schedule(i);
         vm.prank(relayer);
         circle.join(i, m[i], invite, block.timestamp + 1 hours, pay, rounds);
@@ -166,7 +166,7 @@ contract CircleTest is Test {
     function test_join_rejectsWrongInviteKey() public {
         (, uint256 otherKey) = makeAddrAndKey("not-the-invite");
         Circle.Sig memory invite = _sig(otherKey, circle.inviteDigest(0, m[0]));
-        Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], 2 * C, block.timestamp + 1, circle.nonceFor(JOIN, m[0])));
+        Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], 2 * C, block.timestamp + 1, circle.joinNonce(m[0])));
         Circle.Sig[] memory rounds = _schedule(0);
         vm.expectRevert(bytes("Circle:invite"));
         circle.join(0, m[0], invite, block.timestamp + 1, pay, rounds);
@@ -174,7 +174,7 @@ contract CircleTest is Test {
 
     function test_join_inviteBoundToMemberAndSlot() public {
         Circle.Sig memory inviteForM0 = _sig(inviteKey, circle.inviteDigest(0, m[0]));
-        Circle.Sig memory pay = _sig(pk[1], _authDigest(m[1], 2 * C, block.timestamp + 1, circle.nonceFor(JOIN, m[1])));
+        Circle.Sig memory pay = _sig(pk[1], _authDigest(m[1], 2 * C, block.timestamp + 1, circle.joinNonce(m[1])));
         Circle.Sig[] memory rounds = _schedule(1);
         vm.expectRevert(bytes("Circle:invite"));
         circle.join(0, m[1], inviteForM0, block.timestamp + 1, pay, rounds);
@@ -201,7 +201,7 @@ contract CircleTest is Test {
 
     function test_join_rejectsScheduleThatWouldNeverPay() public {
         Circle.Sig memory invite = _sig(inviteKey, circle.inviteDigest(0, m[0]));
-        Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], 2 * C, block.timestamp + 1, circle.nonceFor(JOIN, m[0])));
+        Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], 2 * C, block.timestamp + 1, circle.joinNonce(m[0])));
         Circle.Sig[] memory rounds = _schedule(0);
         rounds[1] = _sig(pk[0], _authDigest(m[0], 1, type(uint256).max, circle.nonceFor(2, m[0])));
         vm.expectRevert(bytes("Circle:schedule-sig"));
@@ -213,7 +213,7 @@ contract CircleTest is Test {
 
     function test_join_payAuthMustCoverRoundPlusSetAside() public {
         Circle.Sig memory invite = _sig(inviteKey, circle.inviteDigest(0, m[0]));
-        Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], C, block.timestamp + 1, circle.nonceFor(JOIN, m[0])));
+        Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], C, block.timestamp + 1, circle.joinNonce(m[0])));
         Circle.Sig[] memory rounds = _schedule(0);
         vm.expectRevert();
         circle.join(0, m[0], invite, block.timestamp + 1, pay, rounds);
@@ -238,6 +238,69 @@ contract CircleTest is Test {
         circle.returnBond();
         _finish();
         assertEq(token.balanceOf(org), WALLET, "unused guarantee comes back whole");
+    }
+
+    // ---------- before the circle fills ----------
+
+    function _leaveSig(uint256 i) internal view returns (Circle.Sig memory) {
+        return _sig(pk[i], circle.leaveDigest(m[i]));
+    }
+
+    function test_leaveBeforeStart_refundsEverything_slotReopens_canRejoin() public {
+        _join(0);
+        _join(1);
+        circle.leave(m[1], _leaveSig(1));
+        assertEq(token.balanceOf(m[1]), WALLET, "everything back");
+        assertEq(circle.joined(), 1);
+        assertEq(circle.members(1), address(0), "slot open again");
+        assertEq(circle.paidCount(0), 1);
+        assertFalse(circle.hasStanding(m[1], 1), "standing orders dropped");
+        _join(1); // fresh join authorization, same person
+        assertEq(circle.members(1), m[1]);
+        for (uint256 i = 2; i < N; i++) _join(i);
+        assertEq(circle.start(), block.timestamp, "fills and starts as usual");
+        for (uint256 r; r < N; r++) _runRound(r);
+        _finish();
+        for (uint256 i; i < N; i++) assertEq(token.balanceOf(m[i]), WALLET, "the circle still settles whole");
+    }
+
+    function test_leave_oldSignatureCannotPushARejoinedMemberOut() public {
+        _join(1);
+        Circle.Sig memory first = _leaveSig(1);
+        circle.leave(m[1], first);
+        _join(1);
+        vm.expectRevert(bytes("Circle:sig"));
+        circle.leave(m[1], first);
+        assertEq(circle.members(1), m[1]);
+    }
+
+    function test_leave_onlyTheMember_andNeverAfterStart() public {
+        _join(1);
+        Circle.Sig memory forged = _sig(pk[2], circle.leaveDigest(m[1]));
+        vm.expectRevert(bytes("Circle:sig"));
+        circle.leave(m[1], forged);
+        for (uint256 i; i < N; i++) if (i != 1) _join(i);
+        Circle.Sig memory own = _leaveSig(1);
+        vm.expectRevert(bytes("Circle:started"));
+        circle.leave(m[1], own);
+    }
+
+    function test_withdrawBond_beforeStartOnly_onlyOrganiser() public {
+        _bond(2 * C);
+        Circle.Sig memory notHers = _sig(pk[0], circle.bondExitDigest());
+        vm.expectRevert(bytes("Circle:sig"));
+        circle.withdrawBond(notHers);
+        Circle.Sig memory sig = _sig(orgKey, circle.bondExitDigest());
+        circle.withdrawBond(sig);
+        assertEq(token.balanceOf(org), WALLET, "guarantee back");
+        assertEq(circle.bond(), 0);
+        vm.expectRevert(bytes("Circle:sig"));
+        circle.withdrawBond(sig); // replay
+        _bond(C);
+        _joinAll();
+        Circle.Sig memory late = _sig(orgKey, circle.bondExitDigest());
+        vm.expectRevert(bytes("Circle:started"));
+        circle.withdrawBond(late);
     }
 
     // ---------- timing negatives ----------
