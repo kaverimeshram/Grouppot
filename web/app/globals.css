@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@layer base {
+  body {
+    --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    color: var(--color-ink);
+    background: var(--color-canvas);
+    min-height: 100dvh;
+  }
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+  input {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .ring-turn {
+    transition: transform var(--duration-rotate) var(--ease-in-out);
+  }
+  .ring-fill {
+    transition:
+      stroke-dashoffset var(--duration-arc) var(--ease-out),
+      opacity var(--duration-flip) var(--ease-out);
+  }
+  .ring-disc {
+    transition: r var(--duration-rotate) var(--ease-in-out);
+  }
+  .row-flip {
+    transition: background-color var(--duration-flip) var(--ease-out);
+  }
+  .check-in {
+    animation: check-in var(--duration-check) var(--ease-out) both;
+  }
+  .btn {
+    transition:
+      background-color var(--duration-flip) var(--ease-out),
+      transform var(--duration-flip) var(--ease-out);
+  }
+  .t-pot {
+    font-size: var(--text-pot);
+    line-height: var(--text-pot--line-height);
+    letter-spacing: var(--text-pot--letter-spacing);
+    font-weight: var(--text-pot--font-weight);
+    font-variant-numeric: tabular-nums;
+  }
+  .t-headline {
+    font-size: var(--text-headline);
+    line-height: var(--text-headline--line-height);
+    letter-spacing: var(--text-headline--letter-spacing);
+    font-weight: var(--text-headline--font-weight);
+  }
+  .t-count {
+    font-size: var(--text-count);
+    line-height: var(--text-count--line-height);
+    font-weight: var(--text-count--font-weight);
+    font-variant-numeric: tabular-nums;
+  }
+  .t-lead {
+    font-size: var(--text-lead);
+    line-height: var(--text-lead--line-height);
+    font-weight: var(--text-lead--font-weight);
+  }
+  .t-body {
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+  .t-small {
+    font-size: var(--text-small);
+    line-height: var(--text-small--line-height);
+  }
+  .t-caption {
+    font-size: var(--text-caption);
+    line-height: var(--text-caption--line-height);
+  }
+}
+
+@keyframes check-in {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-bar {
+  50% {
+    opacity: 0.5;
+  }
+}
+.pulse-bar {
+  animation: pulse-bar 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-bar {
+    animation: none;
+  }
+}
