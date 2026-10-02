@@ -10,20 +10,27 @@ contract CircleFactory {
     Circle[] public circles;
     mapping(address => bool) public isCircle;
 
-    event CircleCreated(address indexed circle, address indexed inviteSigner, string name, uint256 size, uint256 contribution, uint256 period);
+    event CircleCreated(address indexed circle, address indexed organiser, string name, uint256 size, uint256 contribution, uint256 period);
 
     constructor(address token_) {
         token = token_;
     }
 
-    function create(string calldata name, string[] calldata labels, uint256 contribution, uint256 period, address inviteSigner)
+    function create(
+        string calldata name,
+        string[] calldata labels,
+        uint256 contribution,
+        uint256 period,
+        address organiser,
+        address inviteSigner
+    )
         external
         returns (Circle c)
     {
-        c = new Circle(token, inviteSigner, name, labels, contribution, period);
+        c = new Circle(token, organiser, inviteSigner, name, labels, contribution, period);
         circles.push(c);
         isCircle[address(c)] = true;
-        emit CircleCreated(address(c), inviteSigner, name, labels.length, contribution, period);
+        emit CircleCreated(address(c), organiser, name, labels.length, contribution, period);
     }
 
     function count() external view returns (uint256) {

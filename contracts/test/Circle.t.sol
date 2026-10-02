@@ -28,11 +28,15 @@ contract CircleTest is Test {
     address sink = makeAddr("sink");
     address inviteAddr;
     uint256 inviteKey;
+    address org;
+    uint256 orgKey;
     address[N] m;
     uint256[N] pk;
 
     function setUp() public {
         (inviteAddr, inviteKey) = makeAddrAndKey("invite");
+        (org, orgKey) = makeAddrAndKey("organiser");
+        _fund(org, WALLET);
         string[] memory labels = new string[](N);
         for (uint256 i; i < N; i++) {
             (m[i], pk[i]) = makeAddrAndKey(string.concat("member", vm.toString(i)));
@@ -41,7 +45,7 @@ contract CircleTest is Test {
         }
         factory = new CircleFactory(AUSD);
         vm.prank(relayer);
-        circle = factory.create("Saturday Ajo", labels, C, PERIOD, inviteAddr);
+        circle = factory.create("Saturday Ajo", labels, C, PERIOD, org, inviteAddr);
     }
 
     // ---------- helpers ----------
@@ -73,7 +77,7 @@ contract CircleTest is Test {
 
     function _join(uint256 i) internal {
         Circle.Sig memory invite = _sig(inviteKey, circle.inviteDigest(i, m[i]));
-        Circle.Sig memory pay = _sig(pk[i], _authDigest(m[i], circle.joinAmount(i), block.timestamp + 1 hours, circle.nonceFor(JOIN, m[i])));
+        Circle.Sig memory pay = _sig(pk[i], _authDigest(m[i], circle.joinAmount(), block.timestamp + 1 hours, circle.nonceFor(JOIN, m[i])));
         Circle.Sig[] memory rounds = _schedule(i);
         vm.prank(relayer);
         circle.join(i, m[i], invite, block.timestamp + 1 hours, pay, rounds);
@@ -81,6 +85,12 @@ contract CircleTest is Test {
 
     function _joinAll() internal {
         for (uint256 i; i < N; i++) _join(i);
+    }
+
+    function _bond(uint256 amount) internal {
+        Circle.Sig memory sig = _sig(orgKey, _authDigest(org, amount, block.timestamp + 1 hours, circle.bondNonce()));
+        vm.prank(relayer);
+        circle.addBond(amount, block.timestamp + 1 hours, sig);
     }
 
     function _drain(uint256 i) internal {
@@ -99,13 +109,14 @@ contract CircleTest is Test {
         circle.payout();
     }
 
-    function _returnAll() internal {
-        for (uint256 i; i < N; i++) circle.returnReserve(m[i]);
+    function _finish() internal {
+        for (uint256 i; i < N; i++) circle.returnSetAside(m[i]);
+        circle.returnBond();
     }
 
     function _total() internal view returns (uint256 t) {
         for (uint256 i; i < N; i++) t += token.balanceOf(m[i]);
-        t += token.balanceOf(sink) + token.balanceOf(address(circle));
+        t += token.balanceOf(sink) + token.balanceOf(address(circle)) + token.balanceOf(org);
     }
 
     // ---------- the claim ----------
@@ -114,17 +125,16 @@ contract CircleTest is Test {
         uint256 before = _total();
         uint256 g = gasleft();
         _join(0);
-        console2.log("gas join slot 0 (5 members, 4 standing orders)", g - gasleft());
+        console2.log("gas join (5 members, 4 standing orders)", g - gasleft());
         for (uint256 i = 1; i < N; i++) _join(i);
         assertEq(circle.start(), block.timestamp, "starts when the last slot is claimed");
-        // set-asides 20+15+10+5+0 plus round 0 from everyone
-        assertEq(token.balanceOf(address(circle)), 50e6 + N * C);
+        assertEq(token.balanceOf(address(circle)), N * 2 * C, "round 0 plus a one-round set-aside from everyone");
 
         for (uint256 r; r < N; r++) {
             uint256 had = token.balanceOf(m[r]);
             vm.warp(circle.opensAt(r));
-            g = gasleft();
             if (r > 0) {
+                g = gasleft();
                 vm.prank(relayer);
                 assertEq(circle.collect(), N, "every standing order pulls");
                 console2.log("gas collect (5 pulls)", g - gasleft());
@@ -133,24 +143,22 @@ contract CircleTest is Test {
             vm.prank(relayer);
             circle.payout();
             if (r == 1) console2.log("gas payout", g - gasleft());
-            // slot r receives the whole pot, having already paid round r out of it
-            assertEq(token.balanceOf(m[r]) + (r > 0 ? C : 0), had + N * C, "slot r collects the pot once");
+            assertEq(token.balanceOf(m[r]) + (r > 0 ? C : 0), had + N * C, "slot r collects the whole pot, once");
         }
-        assertEq(circle.round(), N);
         vm.expectRevert(bytes("Circle:not-active"));
         circle.payout();
-        _returnAll();
+        _finish();
         assertEq(token.balanceOf(address(circle)), 0, "nothing left behind");
         for (uint256 i; i < N; i++) assertEq(token.balanceOf(m[i]), WALLET, "every member nets zero");
         assertEq(_total(), before, "conserved");
-        assertEq(relayer.balance, 0, "relayer paid gas only, members paid none");
     }
 
-    function test_round0PaysOutTheMomentTheCircleFills() public {
+    function test_firstCollectorGetsCredit_notAPrepayment() public {
         _joinAll();
         vm.prank(relayer);
         circle.payout();
-        assertEq(token.balanceOf(m[0]), WALLET - circle.joinAmount(0) + N * C);
+        // slot 0 has put in 2C and walks away with N*C: the early slot is a loan, as in every real circle
+        assertEq(token.balanceOf(m[0]), WALLET - 2 * C + N * C);
     }
 
     // ---------- join negatives ----------
@@ -158,7 +166,7 @@ contract CircleTest is Test {
     function test_join_rejectsWrongInviteKey() public {
         (, uint256 otherKey) = makeAddrAndKey("not-the-invite");
         Circle.Sig memory invite = _sig(otherKey, circle.inviteDigest(0, m[0]));
-        Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], circle.joinAmount(0), block.timestamp + 1, circle.nonceFor(JOIN, m[0])));
+        Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], 2 * C, block.timestamp + 1, circle.nonceFor(JOIN, m[0])));
         Circle.Sig[] memory rounds = _schedule(0);
         vm.expectRevert(bytes("Circle:invite"));
         circle.join(0, m[0], invite, block.timestamp + 1, pay, rounds);
@@ -166,10 +174,13 @@ contract CircleTest is Test {
 
     function test_join_inviteBoundToMemberAndSlot() public {
         Circle.Sig memory inviteForM0 = _sig(inviteKey, circle.inviteDigest(0, m[0]));
-        Circle.Sig memory pay = _sig(pk[1], _authDigest(m[1], circle.joinAmount(0), block.timestamp + 1, circle.nonceFor(JOIN, m[1])));
+        Circle.Sig memory pay = _sig(pk[1], _authDigest(m[1], 2 * C, block.timestamp + 1, circle.nonceFor(JOIN, m[1])));
         Circle.Sig[] memory rounds = _schedule(1);
         vm.expectRevert(bytes("Circle:invite"));
         circle.join(0, m[1], inviteForM0, block.timestamp + 1, pay, rounds);
+        Circle.Sig memory inviteSlot0 = _sig(inviteKey, circle.inviteDigest(0, m[1]));
+        vm.expectRevert(bytes("Circle:invite"));
+        circle.join(1, m[1], inviteSlot0, block.timestamp + 1, pay, rounds);
     }
 
     function test_join_slotTakenAndDoubleJoinAndAfterStart() public {
@@ -190,9 +201,8 @@ contract CircleTest is Test {
 
     function test_join_rejectsScheduleThatWouldNeverPay() public {
         Circle.Sig memory invite = _sig(inviteKey, circle.inviteDigest(0, m[0]));
-        Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], circle.joinAmount(0), block.timestamp + 1, circle.nonceFor(JOIN, m[0])));
+        Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], 2 * C, block.timestamp + 1, circle.nonceFor(JOIN, m[0])));
         Circle.Sig[] memory rounds = _schedule(0);
-        // round 2 signed for 1 unit instead of C
         rounds[1] = _sig(pk[0], _authDigest(m[0], 1, type(uint256).max, circle.nonceFor(2, m[0])));
         vm.expectRevert(bytes("Circle:schedule-sig"));
         circle.join(0, m[0], invite, block.timestamp + 1, pay, rounds);
@@ -201,13 +211,33 @@ contract CircleTest is Test {
         circle.join(0, m[0], invite, block.timestamp + 1, pay, short);
     }
 
-    function test_join_payAuthMustCoverSetAsidePlusRound() public {
+    function test_join_payAuthMustCoverRoundPlusSetAside() public {
         Circle.Sig memory invite = _sig(inviteKey, circle.inviteDigest(0, m[0]));
         Circle.Sig memory pay = _sig(pk[0], _authDigest(m[0], C, block.timestamp + 1, circle.nonceFor(JOIN, m[0])));
         Circle.Sig[] memory rounds = _schedule(0);
         vm.expectRevert();
         circle.join(0, m[0], invite, block.timestamp + 1, pay, rounds);
         assertEq(token.balanceOf(m[0]), WALLET, "nothing moved");
+    }
+
+    // ---------- guarantee ----------
+
+    function test_bond_onlyTheOrganisersSignature_andLockedUntilEveryoneIsBack() public {
+        Circle.Sig memory forged = _sig(pk[0], _authDigest(org, C, block.timestamp + 1, circle.bondNonce()));
+        vm.expectRevert();
+        circle.addBond(C, block.timestamp + 1, forged);
+        _bond(3 * C);
+        _bond(C);
+        assertEq(circle.bond(), 4 * C);
+        assertEq(token.balanceOf(org), WALLET - 4 * C);
+        vm.expectRevert(bytes("Circle:bond-locked"));
+        circle.returnBond();
+        _joinAll();
+        for (uint256 r; r < N; r++) _runRound(r);
+        vm.expectRevert(bytes("Circle:set-asides-first"));
+        circle.returnBond();
+        _finish();
+        assertEq(token.balanceOf(org), WALLET, "unused guarantee comes back whole");
     }
 
     // ---------- timing negatives ----------
@@ -218,7 +248,6 @@ contract CircleTest is Test {
         _joinAll();
         vm.prank(relayer);
         circle.payout();
-        // round 1 has not opened: no pull, no payout
         vm.expectRevert(bytes("Circle:not-open"));
         circle.collect();
         vm.expectRevert(bytes("Circle:round-open"));
@@ -227,22 +256,33 @@ contract CircleTest is Test {
         _drain(3);
         circle.collect();
         assertEq(circle.paidCount(1), N - 1);
-        // someone unpaid and not yet due: payout waits for the due date
         vm.expectRevert(bytes("Circle:round-open"));
         circle.payout();
     }
 
     // ---------- defaults ----------
 
-    function test_missedRound_coveredFromSetAside_flagged_recipientWhole() public {
+    function test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() public {
+        _bond(2 * C);
         _joinAll();
         _runRound(0);
         _drain(3); // slot 3 stops paying before round 1
-        uint256 had = token.balanceOf(m[1]);
+        uint256 had1 = token.balanceOf(m[1]);
         _runRound(1);
-        assertEq(token.balanceOf(m[1]), had - C + N * C, "round 1 recipient still gets the full pot");
-        assertEq(circle.defaults(m[3]), 1, "the member who backed out is flagged");
-        assertEq(circle.reserveBal(m[3]), circle.reserveLocked(m[3]) - C);
+        assertEq(token.balanceOf(m[1]), had1 - C + N * C, "round 1 collector paid in full (set-aside)");
+        assertEq(circle.defaults(m[3]), 1, "the member who stopped is flagged");
+        uint256 had2 = token.balanceOf(m[2]);
+        _runRound(2);
+        assertEq(token.balanceOf(m[2]), had2 - C + N * C, "round 2 collector paid in full (guarantee)");
+        assertEq(circle.bond(), C);
+        _runRound(3); // slot 3's own turn: its pot repays the guarantee and refills its set-aside first
+        assertEq(circle.bond(), 2 * C, "guarantee repaid");
+        assertEq(circle.owes(m[3]), 0);
+        _runRound(4);
+        _finish();
+        for (uint256 i; i < N; i++) if (i != 3) assertEq(token.balanceOf(m[i]), WALLET, "honest members net zero");
+        assertEq(token.balanceOf(org), WALLET, "organiser whole: the defaulter's own pot repaid her");
+        assertEq(token.balanceOf(address(circle)), 0);
     }
 
     function test_cancelledAuthorizationIsADefault() public {
@@ -257,7 +297,6 @@ contract CircleTest is Test {
         vm.warp(circle.dueAt(1) + 1);
         circle.payout();
         assertEq(circle.defaults(m[2]), 1);
-        assertGt(token.balanceOf(m[2]), 0, "money stayed in the wallet, and the circle shows the default");
     }
 
     function test_lateTopUp_manualPay_thenStandingOrderCannotDoubleCharge() public {
@@ -278,58 +317,61 @@ contract CircleTest is Test {
         assertEq(token.balanceOf(m[4]), b - C, "charged exactly once");
     }
 
-    /// The hole the spike pinned: the last slot locks no set-aside, so its missed rounds were uncovered and the
-    /// recipients short. Now the gap is a debt repaid from the defaulter's own clamped payout.
-    function test_lastSlotDefaults_victimsRepaidFromItsOwnPayout_honestNetZero() public {
+    /// No guarantee at all: the last slot skips every round before its turn. Each collector it shorted is repaid out of
+    /// its own pot when its turn comes.
+    function test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() public {
         _joinAll();
         _runRound(0);
-        _drain(4); // last slot: set-aside 0, stops paying from round 1
+        _drain(4);
         for (uint256 r = 1; r < N; r++) _runRound(r);
-        assertEq(circle.defaults(m[4]), N - 1, "rounds 1 to 4 missed");
-        assertEq(circle.owes(m[4]), 0, "debts fully repaid from its payout");
-        _returnAll();
+        assertEq(circle.defaults(m[4]), N - 1);
+        assertEq(circle.owes(m[4]), 0, "every debt repaid from its payout");
+        _finish();
         for (uint256 i; i < 4; i++) assertEq(token.balanceOf(m[i]), WALLET, "honest members net zero");
         assertEq(token.balanceOf(address(circle)), 0);
     }
 
-    /// A member who stops paying before their turn, collects, and moves the payout out of reach. The clamp holds back
-    /// what they skipped, which refills their set-aside, so the round they still owe after collecting is covered.
-    /// (Without the drain after collecting, the standing order would simply pull that round from the payout.)
-    function test_defaultBeforeTurn_collectThenVanish_clampCoversTheRest() public {
+    /// Slot 0 collects first, then vanishes with the pot. Its set-aside covers one round and the organiser's
+    /// guarantee the rest: every other member is whole and the organiser carries the loss she agreed to carry.
+    function test_collectAndVanish_guaranteeMakesEveryoneElseWhole() public {
+        _bond(3 * C);
         _joinAll();
         _runRound(0);
-        _drain(3);
         for (uint256 r = 1; r < N; r++) {
-            if (r == 4) _drain(3);
+            _drain(0);
             _runRound(r);
         }
-        _returnAll();
-        for (uint256 i; i < N; i++) if (i != 3) assertEq(token.balanceOf(m[i]), WALLET, "honest members net zero");
+        _finish();
+        for (uint256 i = 1; i < N; i++) assertEq(token.balanceOf(m[i]), WALLET, "honest members net zero");
+        assertEq(token.balanceOf(org), WALLET - 3 * C, "the organiser's guarantee absorbed exactly 3 rounds");
+        assertEq(circle.defaults(m[0]), N - 1);
         assertEq(token.balanceOf(address(circle)), 0);
     }
 
-    function test_collectAndVanish_anySlot_nobodyElseLoses(uint8 slotSeed) public {
-        uint256 v = uint256(slotSeed) % N;
+    /// The same vanish with a guarantee too small: the shortfall lands on the collectors it could not cover, is recorded
+    /// as debt against the member who vanished, and is exactly the uncovered rounds.
+    function test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() public {
+        _bond(C);
         _joinAll();
-        for (uint256 r; r < N; r++) {
-            if (r == v + 1) _drain(v); // collects in round v, then disappears
+        _runRound(0);
+        for (uint256 r = 1; r < N; r++) {
+            _drain(0);
             _runRound(r);
         }
-        _returnAll();
-        for (uint256 i; i < N; i++) {
-            if (i != v) assertEq(token.balanceOf(m[i]), WALLET, "honest members net zero");
-        }
-        assertLe(token.balanceOf(m[v]) + token.balanceOf(sink), WALLET, "the vanisher does not profit");
+        _finish();
+        uint256 lost;
+        for (uint256 i = 1; i < N; i++) lost += WALLET - token.balanceOf(m[i]);
+        assertEq(lost, 2 * C, "rounds 3 and 4 uncovered");
+        assertEq(circle.owes(m[0]), 3 * C, "recorded against the member who vanished: 1 round to the guarantee, 2 to members");
         assertEq(token.balanceOf(address(circle)), 0);
     }
 
     // ---------- griefing ----------
 
-    /// A caller who starves the pull of gas must not be able to turn a funded member into a defaulter.
     function test_lowGasCallerCannotForceADefault() public {
         _joinAll();
         _runRound(0);
-        vm.warp(circle.dueAt(1) + 1); // nobody collected; payout must pull everyone
+        vm.warp(circle.dueAt(1) + 1);
         vm.prank(relayer);
         (bool ok,) = address(circle).call{gas: 400_000}(abi.encodeCall(Circle.payout, ()));
         assertFalse(ok, "starved payout reverts");
@@ -338,37 +380,35 @@ contract CircleTest is Test {
         for (uint256 i; i < N; i++) assertEq(circle.defaults(m[i]), 0, "funded members never flagged");
     }
 
-    // ---------- fuzz over default patterns ----------
+    // ---------- fuzz ----------
 
-    /// Each member stops paying at a random round (or never). Whatever happens: money is conserved, nothing is left
-    /// stuck in the circle, nobody ends up ahead, and with a single defaulter every honest member nets exactly zero.
-    function testFuzz_anyDefaultPattern_conservedNoProfitNothingStuck(uint256 seed) public {
+    /// Random members stop paying at random rounds (some after collecting, some before), with a random guarantee.
+    /// Always: money is conserved, nothing is stuck, the organiser loses at most what she posted, and with one
+    /// defaulter and a guarantee of N-2 rounds every honest member nets exactly zero.
+    function testFuzz_anyDefaultPattern(uint256 seed) public {
+        uint256 bondRounds = seed % (N - 1);
+        if (bondRounds > 0) _bond(bondRounds * C);
         uint256[N] memory stopAt;
         uint256 defaulters;
         for (uint256 i; i < N; i++) {
             uint256 x = uint256(keccak256(abi.encode(seed, i))) % (N * 3);
-            stopAt[i] = x < N ? x + 1 : type(uint256).max; // about a third of members default
-            if (stopAt[i] < N) defaulters++;
+            stopAt[i] = x < N ? x : type(uint256).max;
+            if (x < N) defaulters++;
         }
         uint256 before = _total();
         _joinAll();
         for (uint256 r; r < N; r++) {
-            for (uint256 i; i < N; i++) if (stopAt[i] == r) _drain(i);
+            for (uint256 i; i < N; i++) if (stopAt[i] <= r) _drain(i); // a vanisher never pays again
             _runRound(r);
         }
-        _returnAll();
+        _finish();
         assertEq(_total(), before, "conserved");
         assertEq(token.balanceOf(address(circle)), 0, "nothing stuck");
-        for (uint256 i; i < N; i++) {
-            uint256 got = token.balanceOf(m[i]);
-            if (stopAt[i] == type(uint256).max) {
-                if (defaulters <= 1) assertEq(got, WALLET, "single defaulter: honest nets zero");
-            } else {
-                assertLe(got + 0, WALLET, "a defaulter never comes out ahead");
+        assertGe(token.balanceOf(org) + bondRounds * C, WALLET, "organiser loses at most her guarantee");
+        if (defaulters == 1 && bondRounds >= N - 2) {
+            for (uint256 i; i < N; i++) {
+                if (stopAt[i] == type(uint256).max) assertEq(token.balanceOf(m[i]), WALLET, "honest nets zero");
             }
-        }
-        for (uint256 i; i < N; i++) {
-            if (stopAt[i] == type(uint256).max) assertLe(token.balanceOf(m[i]), WALLET, "nobody profits");
         }
     }
 }
