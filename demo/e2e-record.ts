@@ -55,7 +55,7 @@ save();
 const invB = newInviteKey();
 wallets[`${run}-inviteB`] = invB.key;
 save();
-const b = (await relay("create", { name: "Proven first", labels: ["First", "Second", "Third"], contribution: C.toString(), period: 600, earlySlots: 1, minPaid: 3, organiser: A[0]!.a.address, inviteSigner: invB.signer }, BASE)).circle as Address;
+const b = (await relay("create", { name: "Proven first", labels: ["First", "Second", "Third", "Fourth"], contribution: C.toString(), period: 600, earlySlots: 1, minPaid: 3, organiser: A[0]!.a.address, inviteSigner: invB.signer }, BASE)).circle as Address;
 step("B created, first place kept for 3 paid and none missed", { circle: b });
 
 await relay("practice", { address: newcomer.address, circle: b }, BASE);
