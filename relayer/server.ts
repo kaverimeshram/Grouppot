@@ -287,7 +287,7 @@ const server = Bun.serve({
       ]);
       return Response.json({ ok: true, factory: FACTORY, circles: Number(count), gasReserveMon: Number(mon) / 1e18, practiceDollars: Number(usd) / 1e6 }, { headers });
     }
-    const name = url.pathname.replace(/^\/api\//, "");
+    const name = url.pathname.replace(/^\/api\//, "").replace(/\/$/, "");
     const route = req.method === "POST" ? routes[name] : undefined;
     if (!route) return Response.json({ error: "not found" }, { status: 404, headers });
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? srv.requestIP(req)?.address ?? "?";
