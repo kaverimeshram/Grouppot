@@ -1,30 +1,35 @@
-Ran 21 tests for test/Circle.t.sol:CircleTest
-[PASS] testFuzz_anyDefaultPattern(uint256) (runs: 256, μ: 4556360, ~: 4554055)
-[PASS] test_bond_onlyTheOrganisersSignature_andLockedUntilEveryoneIsBack() (gas: 4348863)
-[PASS] test_cancelledAuthorizationIsADefault() (gas: 3042109)
-[PASS] test_collectAndVanish_guaranteeMakesEveryoneElseWhole() (gas: 4596074)
-[PASS] test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() (gas: 4561521)
-[PASS] test_firstCollectorGetsCredit_notAPrepayment() (gas: 2676395)
-[PASS] test_fullCycle_gaslessForMembers_eachPaidOnce_allNetZero() (gas: 4207311)
-  gas join (5 members, 4 standing orders) 576874
-  gas collect (5 pulls) 322311
-  gas payout 20120
-  gas collect (5 pulls) 322327
-  gas collect (5 pulls) 322333
-  gas collect (5 pulls) 333534
-[PASS] test_join_inviteBoundToMemberAndSlot() (gas: 85907)
-[PASS] test_join_payAuthMustCoverRoundPlusSetAside() (gas: 546452)
-[PASS] test_join_rejectsScheduleThatWouldNeverPay() (gas: 164974)
-[PASS] test_join_rejectsWrongInviteKey() (gas: 64852)
-[PASS] test_join_slotTakenAndDoubleJoinAndAfterStart() (gas: 2687105)
-[PASS] test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() (gas: 4373355)
-[PASS] test_lateTopUp_manualPay_thenStandingOrderCannotDoubleCharge() (gas: 3094102)
-[PASS] test_leaveBeforeStart_refundsEverything_slotReopens_canRejoin() (gas: 4254078)
-[PASS] test_leave_oldSignatureCannotPushARejoinedMemberOut() (gas: 893080)
-[PASS] test_leave_onlyTheMember_andNeverAfterStart() (gas: 2643708)
-[PASS] test_lowGasCallerCannotForceADefault() (gas: 3124465)
-[PASS] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 4450556)
-[PASS] test_payoutAndCollectRespectTheCalendar() (gas: 3016487)
-[PASS] test_withdrawBond_beforeStartOnly_onlyOrganiser() (gas: 2830388)
-Suite result: ok. 21 passed; 0 failed; 0 skipped; finished in 13.47s (16.23s CPU time)
-Ran 1 test suite in 15.23s (13.47s CPU time): 21 tests passed, 0 failed, 0 skipped (21 total tests)
+Ran 26 tests for test/Circle.t.sol:CircleTest
+[PASS] testFuzz_anyDefaultPattern(uint256) (runs: 256, μ: 4703965, ~: 4696141)
+[PASS] test_bond_onlyTheOrganisersSignature_andLockedUntilEveryoneIsBack() (gas: 4523659)
+[PASS] test_cancelledAuthorizationIsADefault() (gas: 3171465)
+[PASS] test_collectAndVanish_guaranteeMakesEveryoneElseWhole() (gas: 4768592)
+[PASS] test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() (gas: 4734061)
+[PASS] test_earlySlots_refuseNewcomers_admitProvenMembers_refuseAnyMiss() (gas: 8929151)
+[PASS] test_firstCollectorGetsCredit_notAPrepayment() (gas: 2798223)
+[PASS] test_fullCycle_gaslessForMembers_eachPaidOnce_allNetZero() (gas: 4381843)
+  gas join (5 members, 4 standing orders) 576567
+  gas collect (5 pulls) 329726
+  gas payout 20142
+  gas collect (5 pulls) 329742
+  gas collect (5 pulls) 329748
+  gas collect (5 pulls) 340949
+[PASS] test_join_inviteBoundToMemberAndSlot() (gas: 85618)
+[PASS] test_join_payAuthMustCoverRoundPlusSetAside() (gas: 546156)
+[PASS] test_join_rejectsScheduleThatWouldNeverPay() (gas: 164556)
+[PASS] test_join_rejectsWrongInviteKey() (gas: 64574)
+[PASS] test_join_slotTakenAndDoubleJoinAndAfterStart() (gas: 2808201)
+[PASS] test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() (gas: 4545736)
+[PASS] test_lateTopUp_manualPay_thenStandingOrderCannotDoubleCharge() (gas: 3223142)
+[PASS] test_leaveBeforeStart_refundsEverything_slotReopens_canRejoin() (gas: 4428519)
+[PASS] test_leave_oldSignatureCannotPushARejoinedMemberOut() (gas: 892692)
+[PASS] test_leave_onlyTheMember_andNeverAfterStart() (gas: 2765592)
+[PASS] test_lowGasCallerCannotForceADefault() (gas: 3255279)
+[PASS] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 4622954)
+[PASS] test_payoutAndCollectRespectTheCalendar() (gas: 3144357)
+[PASS] test_record_fullCleanCircle_writesPaidAndFinished() (gas: 4299100)
+[PASS] test_record_joinThatIsWithdrawnNeverCounts() (gas: 492261)
+[PASS] test_record_missesCountAndAFinishIsNotClean() (gas: 4758086)
+[PASS] test_record_onlyCirclesWriteIt() (gas: 16976)
+[PASS] test_withdrawBond_beforeStartOnly_onlyOrganiser() (gas: 2952436)
+Suite result: ok. 26 passed; 0 failed; 0 skipped; finished in 1.32s (1.86s CPU time)
+Ran 1 test suite in 1.89s (1.32s CPU time): 26 tests passed, 0 failed, 0 skipped (26 total tests)

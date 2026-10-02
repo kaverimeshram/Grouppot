@@ -18,6 +18,31 @@ interface IAUSD {
     ) external;
 }
 
+/// The payment record every grouppot circle writes to: rounds paid, rounds missed, circles finished. Kept by the factory,
+/// writable only by its circles.
+interface IRecord {
+    struct Record {
+        uint64 paid;
+        uint64 missed;
+        uint64 finished;
+        uint64 finishedClean;
+    }
+
+    function recordOf(address member) external view returns (Record memory);
+    function notePaid(address member) external;
+    function noteMissed(address member) external;
+    function noteFinished(address member, bool clean) external;
+}
+
+/// Terms the organiser sets at creation.
+struct Terms {
+    uint256 contribution;
+    uint256 period;
+    /// Slots [0, earlySlots) are for members whose record shows at least minPaid rounds paid and none missed.
+    uint256 earlySlots;
+    uint256 minPaid;
+}
+
 /// Rotating savings circle (ajo, tanda, paluwagan). The organiser fixes the payout order as named slots and holds no
 /// key over the money. A member claims a slot with the circle's invite key and, in one set of signatures, pays round 0
 /// plus a one-round set-aside and leaves a standing ERC-3009 authorization for every later round, which anyone may pull
@@ -81,6 +106,10 @@ contract Circle {
     uint256 public immutable contribution;
     uint256 public immutable period;
     uint256 public immutable size;
+    uint256 public immutable earlySlots;
+    uint256 public immutable minPaid;
+    /// The factory that made this circle keeps every member's payment record.
+    IRecord public immutable record;
 
     string public name;
     string[] internal labels;
@@ -129,12 +158,11 @@ contract Circle {
         address inviteSigner_,
         string memory name_,
         string[] memory labels_,
-        uint256 contribution_,
-        uint256 period_
+        Terms memory terms
     ) {
         uint256 n = labels_.length;
         require(n >= 2 && n <= 20, "Circle:size");
-        require(contribution_ > 0 && period_ >= 60, "Circle:params");
+        require(terms.contribution > 0 && terms.period >= 60 && terms.earlySlots < n, "Circle:params");
         require(inviteSigner_ != address(0) && organiser_ != address(0), "Circle:params");
         require(bytes(name_).length > 0 && bytes(name_).length <= 48, "Circle:name");
         for (uint256 i; i < n; i++) {
@@ -146,8 +174,11 @@ contract Circle {
         organiser = organiser_;
         inviteSigner = inviteSigner_;
         name = name_;
-        contribution = contribution_;
-        period = period_;
+        contribution = terms.contribution;
+        period = terms.period;
+        earlySlots = terms.earlySlots;
+        minPaid = terms.minPaid;
+        record = IRecord(msg.sender);
         size = n;
     }
 
@@ -229,6 +260,10 @@ contract Circle {
         require(member != address(0) && slotPlusOne[member] == 0, "Circle:already-member");
         require(_recover(inviteDigest(slot, member), invite) == inviteSigner, "Circle:invite");
         require(rounds.length == size - 1, "Circle:schedule");
+        if (slot < earlySlots) {
+            IRecord.Record memory r = record.recordOf(member);
+            require(r.paid >= minPaid && r.missed == 0, "Circle:record");
+        }
         _storeSchedule(member, rounds);
 
         members[slot] = member;
@@ -241,6 +276,8 @@ contract Circle {
         emit Contributed(0, member);
         if (++joined == size) {
             start = block.timestamp;
+            // round 0 enters everyone's record only now, so a join that is later withdrawn never counts
+            for (uint256 i; i < size; i++) record.notePaid(members[i]);
             emit Started(block.timestamp);
         }
         bytes32 nonce = joinNonce(member);
@@ -333,6 +370,7 @@ contract Circle {
         require(round == size, "Circle:running");
         require(!returned[member], "Circle:returned");
         returned[member] = true;
+        record.noteFinished(member, defaults[member] == 0);
         uint256 bal = reserveBal[member];
         reserveBal[member] = 0;
         bal -= _settle(member, bal);
@@ -371,12 +409,14 @@ contract Circle {
         paid[rd][member] = true;
         paidCount[rd]++;
         cash[member] += contribution;
+        record.notePaid(member);
         emit Contributed(rd, member);
     }
 
     /// Member `m` missed round `rd`. A collector who misses their own round simply receives less.
     function _cover(uint256 rd, address m, address to) internal {
         defaults[m]++;
+        record.noteMissed(m);
         emit Defaulted(rd, m);
         if (m == to) return;
         uint256 fromSetAside = reserveBal[m] < contribution ? reserveBal[m] : contribution;

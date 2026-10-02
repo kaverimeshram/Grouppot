@@ -26,5 +26,7 @@ mutant no-repay-from-pot 's/amount -= _settle\(to, amount\);//'
 mutant no-victim-debt 's/if \(gap > 0\) debts\[m\]\.push\(Debt\(to, gap\)\);//'
 mutant no-gas-guard 's/require\(gasleft\(\) > PULL_GAS \+ PULL_GAS \/ 63 \+ 50_000, "Circle:gas"\);//'
 mutant no-leave-sig 's/require\(_recover\(leaveDigest\(member\), sig\) == member, "Circle:sig"\);//'
+mutant no-record-gate 's/require\(r\.paid >= minPaid && r\.missed == 0, "Circle:record"\);//'
+mutant record-at-join 's/(paidCount\[0\]\+\+;\n        cash\[member\] = contribution;)/$1 record.notePaid(member);/'
 mutant no-schedule-check 's/require\(_recover\(keccak256[^;]*schedule-sig"\);//'
 } | tee results-mutants.txt

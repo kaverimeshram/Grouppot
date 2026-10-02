@@ -1,48 +1,64 @@
 == mutant no-guarantee
-Ran 21 tests for test/Circle.t.sol:CircleTest
-[FAIL: honest nets zero: 95000000 != 100000000; counterexample: calldata=0x12bfd99e000000000000000000000017e374103c4b3810c8a5cd64a949815e0b6c94242f args=[3491306686434430837511379324370671186024739872
-[FAIL: honest members net zero: 95000000 != 100000000] test_collectAndVanish_guaranteeMakesEveryoneElseWhole() (gas: 4689557)
-[FAIL: rounds 3 and 4 uncovered: 15000000 != 10000000] test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() (gas: 4695325)
-[FAIL: round 2 collector paid in full (guarantee): 100000000 != 105000000] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 3674662)
-Suite result: FAILED. 17 passed; 4 failed; 0 skipped; finished in 1.08s (3.83s CPU time)
-Ran 1 test suite in 1.58s (1.08s CPU time): 17 tests passed, 4 failed, 0 skipped (21 total tests)
-[FAIL: honest nets zero: 95000000 != 100000000; counterexample: calldata=0x12bfd99e000000000000000000000017e374103c4b3810c8a5cd64a949815e0b6c94242f args=[3491306686434430837511379324370671186024739872
-[FAIL: honest members net zero: 95000000 != 100000000] test_collectAndVanish_guaranteeMakesEveryoneElseWhole() (gas: 4689557)
-[FAIL: rounds 3 and 4 uncovered: 15000000 != 10000000] test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() (gas: 4695325)
-[FAIL: round 2 collector paid in full (guarantee): 100000000 != 105000000] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 3674662)
+Ran 26 tests for test/Circle.t.sol:CircleTest
+[FAIL: honest nets zero: 95000000 != 100000000; counterexample: calldata=0x12bfd99e00000000000000000000000000000000024597166c5dae8fe66df346e8245b97 args=[3019788895216097076411706141497908119 [3.019e3
+[FAIL: honest members net zero: 95000000 != 100000000] test_collectAndVanish_guaranteeMakesEveryoneElseWhole() (gas: 4862075)
+[FAIL: rounds 3 and 4 uncovered: 15000000 != 10000000] test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() (gas: 4867865)
+[FAIL: round 2 collector paid in full (guarantee): 100000000 != 105000000] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 3811724)
+Suite result: FAILED. 22 passed; 4 failed; 0 skipped; finished in 61.79ms (376.17ms CPU time)
+Ran 1 test suite in 683.98ms (61.79ms CPU time): 22 tests passed, 4 failed, 0 skipped (26 total tests)
+[FAIL: honest nets zero: 95000000 != 100000000; counterexample: calldata=0x12bfd99e00000000000000000000000000000000024597166c5dae8fe66df346e8245b97 args=[3019788895216097076411706141497908119 [3.019e3
+[FAIL: honest members net zero: 95000000 != 100000000] test_collectAndVanish_guaranteeMakesEveryoneElseWhole() (gas: 4862075)
+[FAIL: rounds 3 and 4 uncovered: 15000000 != 10000000] test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() (gas: 4867865)
+[FAIL: round 2 collector paid in full (guarantee): 100000000 != 105000000] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 3811724)
 == mutant no-repay-from-pot
-Ran 21 tests for test/Circle.t.sol:CircleTest
-[FAIL: every debt repaid from its payout: 10000000 != 0] test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() (gas: 4323878)
-[FAIL: guarantee repaid: 5000000 != 10000000] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 4055696)
-Suite result: FAILED. 19 passed; 2 failed; 0 skipped; finished in 2.84s (3.59s CPU time)
-Ran 1 test suite in 3.32s (2.84s CPU time): 19 tests passed, 2 failed, 0 skipped (21 total tests)
-[FAIL: every debt repaid from its payout: 10000000 != 0] test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() (gas: 4323878)
-[FAIL: guarantee repaid: 5000000 != 10000000] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 4055696)
+Ran 26 tests for test/Circle.t.sol:CircleTest
+[FAIL: every debt repaid from its payout: 10000000 != 0] test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() (gas: 4476021)
+[FAIL: guarantee repaid: 5000000 != 10000000] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 4200397)
+Suite result: FAILED. 24 passed; 2 failed; 0 skipped; finished in 402.12ms (752.87ms CPU time)
+Ran 1 test suite in 967.50ms (402.12ms CPU time): 24 tests passed, 2 failed, 0 skipped (26 total tests)
+[FAIL: every debt repaid from its payout: 10000000 != 0] test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() (gas: 4476021)
+[FAIL: guarantee repaid: 5000000 != 10000000] test_missedRound_coveredBySetAsideThenGuarantee_repaidAtTheirTurn() (gas: 4200397)
 == mutant no-victim-debt
-Ran 21 tests for test/Circle.t.sol:CircleTest
-[FAIL: recorded against the member who vanished: 1 round to the guarantee, 2 to members: 5000000 != 15000000] test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() (gas: 4624331)
-[FAIL: honest members net zero: 95000000 != 100000000] test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() (gas: 4422445)
-Suite result: FAILED. 19 passed; 2 failed; 0 skipped; finished in 4.79s (5.50s CPU time)
-Ran 1 test suite in 6.01s (4.79s CPU time): 19 tests passed, 2 failed, 0 skipped (21 total tests)
-[FAIL: recorded against the member who vanished: 1 round to the guarantee, 2 to members: 5000000 != 15000000] test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() (gas: 4624331)
-[FAIL: honest members net zero: 95000000 != 100000000] test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() (gas: 4422445)
+Ran 26 tests for test/Circle.t.sol:CircleTest
+[FAIL: recorded against the member who vanished: 1 round to the guarantee, 2 to members: 5000000 != 15000000] test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() (gas: 4796871)
+[FAIL: honest members net zero: 95000000 != 100000000] test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() (gas: 4594826)
+Suite result: FAILED. 24 passed; 2 failed; 0 skipped; finished in 374.63ms (606.67ms CPU time)
+Ran 1 test suite in 945.39ms (374.63ms CPU time): 24 tests passed, 2 failed, 0 skipped (26 total tests)
+[FAIL: recorded against the member who vanished: 1 round to the guarantee, 2 to members: 5000000 != 15000000] test_collectAndVanish_smallGuarantee_shortfallBoundedAndRecorded() (gas: 4796871)
+[FAIL: honest members net zero: 95000000 != 100000000] test_lastSlotSkipsEverything_noGuarantee_victimsRepaidFromItsPot() (gas: 4594826)
 == mutant no-gas-guard
-Ran 21 tests for test/Circle.t.sol:CircleTest
-[FAIL: starved payout reverts] test_lowGasCallerCannotForceADefault() (gas: 3018919)
-Suite result: FAILED. 20 passed; 1 failed; 0 skipped; finished in 2.76s (3.49s CPU time)
-Ran 1 test suite in 3.30s (2.76s CPU time): 20 tests passed, 1 failed, 0 skipped (21 total tests)
-[FAIL: starved payout reverts] test_lowGasCallerCannotForceADefault() (gas: 3018919)
+Ran 26 tests for test/Circle.t.sol:CircleTest
+[FAIL: starved payout reverts] test_lowGasCallerCannotForceADefault() (gas: 3148228)
+Suite result: FAILED. 25 passed; 1 failed; 0 skipped; finished in 353.06ms (527.10ms CPU time)
+Ran 1 test suite in 916.78ms (353.06ms CPU time): 25 tests passed, 1 failed, 0 skipped (26 total tests)
+[FAIL: starved payout reverts] test_lowGasCallerCannotForceADefault() (gas: 3148228)
 == mutant no-leave-sig
-Ran 21 tests for test/Circle.t.sol:CircleTest
-[FAIL: next call did not revert as expected] test_leave_oldSignatureCannotPushARejoinedMemberOut() (gas: 1121797)
-[FAIL: next call did not revert as expected] test_leave_onlyTheMember_andNeverAfterStart() (gas: 609831)
-Suite result: FAILED. 19 passed; 2 failed; 0 skipped; finished in 1.89s (2.40s CPU time)
-Ran 1 test suite in 2.39s (1.89s CPU time): 19 tests passed, 2 failed, 0 skipped (21 total tests)
-[FAIL: next call did not revert as expected] test_leave_oldSignatureCannotPushARejoinedMemberOut() (gas: 1121797)
-[FAIL: next call did not revert as expected] test_leave_onlyTheMember_andNeverAfterStart() (gas: 609831)
+Ran 26 tests for test/Circle.t.sol:CircleTest
+[FAIL: next call did not revert as expected] test_leave_oldSignatureCannotPushARejoinedMemberOut() (gas: 1121271)
+[FAIL: next call did not revert as expected] test_leave_onlyTheMember_andNeverAfterStart() (gas: 609580)
+Suite result: FAILED. 24 passed; 2 failed; 0 skipped; finished in 437.04ms (983.51ms CPU time)
+Ran 1 test suite in 965.66ms (437.04ms CPU time): 24 tests passed, 2 failed, 0 skipped (26 total tests)
+[FAIL: next call did not revert as expected] test_leave_oldSignatureCannotPushARejoinedMemberOut() (gas: 1121271)
+[FAIL: next call did not revert as expected] test_leave_onlyTheMember_andNeverAfterStart() (gas: 609580)
+== mutant no-record-gate
+Ran 26 tests for test/Circle.t.sol:CircleTest
+[FAIL: next call did not revert as expected] test_earlySlots_refuseNewcomers_admitProvenMembers_refuseAnyMiss() (gas: 8517377)
+Suite result: FAILED. 25 passed; 1 failed; 0 skipped; finished in 357.03ms (508.66ms CPU time)
+Ran 1 test suite in 858.82ms (357.03ms CPU time): 25 tests passed, 1 failed, 0 skipped (26 total tests)
+[FAIL: next call did not revert as expected] test_earlySlots_refuseNewcomers_admitProvenMembers_refuseAnyMiss() (gas: 8517377)
+== mutant record-at-join
+Ran 26 tests for test/Circle.t.sol:CircleTest
+[FAIL: every round paid: 6 != 5] test_record_fullCleanCircle_writesPaidAndFinished() (gas: 4440308)
+[FAIL: round 0 counts only when the circle starts: 1 != 0] test_record_joinThatIsWithdrawnNeverCounts() (gas: 644603)
+[FAIL: assertion failed: 2 != 1] test_record_missesCountAndAFinishIsNotClean() (gas: 4926997)
+Suite result: FAILED. 23 passed; 3 failed; 0 skipped; finished in 793.47ms (1.18s CPU time)
+Ran 1 test suite in 1.35s (793.47ms CPU time): 23 tests passed, 3 failed, 0 skipped (26 total tests)
+[FAIL: every round paid: 6 != 5] test_record_fullCleanCircle_writesPaidAndFinished() (gas: 4440308)
+[FAIL: round 0 counts only when the circle starts: 1 != 0] test_record_joinThatIsWithdrawnNeverCounts() (gas: 644603)
+[FAIL: assertion failed: 2 != 1] test_record_missesCountAndAFinishIsNotClean() (gas: 4926997)
 == mutant no-schedule-check
-Ran 21 tests for test/Circle.t.sol:CircleTest
-[FAIL: next call did not revert as expected] test_join_rejectsScheduleThatWouldNeverPay() (gas: 576995)
-Suite result: FAILED. 20 passed; 1 failed; 0 skipped; finished in 924.13ms (1.22s CPU time)
-Ran 1 test suite in 1.39s (924.13ms CPU time): 20 tests passed, 1 failed, 0 skipped (21 total tests)
-[FAIL: next call did not revert as expected] test_join_rejectsScheduleThatWouldNeverPay() (gas: 576995)
+Ran 26 tests for test/Circle.t.sol:CircleTest
+[FAIL: next call did not revert as expected] test_join_rejectsScheduleThatWouldNeverPay() (gas: 576565)
+Suite result: FAILED. 25 passed; 1 failed; 0 skipped; finished in 436.85ms (910.49ms CPU time)
+Ran 1 test suite in 981.25ms (436.85ms CPU time): 25 tests passed, 1 failed, 0 skipped (26 total tests)
+[FAIL: next call did not revert as expected] test_join_rejectsScheduleThatWouldNeverPay() (gas: 576565)

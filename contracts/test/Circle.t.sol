@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {Circle, IAUSD} from "../src/Circle.sol";
+import {Circle, IAUSD, IRecord, Terms} from "../src/Circle.sol";
 import {CircleFactory} from "../src/CircleFactory.sol";
 
 interface IAUSDExtra {
@@ -45,7 +45,7 @@ contract CircleTest is Test {
         }
         factory = new CircleFactory(AUSD);
         vm.prank(relayer);
-        circle = factory.create("Saturday Ajo", labels, C, PERIOD, org, inviteAddr);
+        circle = factory.create("Saturday Ajo", labels, Terms(C, PERIOD, 0, 0), org, inviteAddr);
     }
 
     // ---------- helpers ----------
@@ -301,6 +301,95 @@ contract CircleTest is Test {
         Circle.Sig memory late = _sig(orgKey, circle.bondExitDigest());
         vm.expectRevert(bytes("Circle:started"));
         circle.withdrawBond(late);
+    }
+
+    // ---------- payment record ----------
+
+    function _rec(address who) internal view returns (IRecord.Record memory) {
+        return factory.recordOf(who);
+    }
+
+    function test_record_fullCleanCircle_writesPaidAndFinished() public {
+        _joinAll();
+        for (uint256 r; r < N; r++) _runRound(r);
+        _finish();
+        for (uint256 i; i < N; i++) {
+            IRecord.Record memory x = _rec(m[i]);
+            assertEq(x.paid, N, "every round paid");
+            assertEq(x.missed, 0);
+            assertEq(x.finished, 1);
+            assertEq(x.finishedClean, 1);
+        }
+    }
+
+    function test_record_joinThatIsWithdrawnNeverCounts() public {
+        _join(1);
+        circle.leave(m[1], _sig(pk[1], circle.leaveDigest(m[1])));
+        assertEq(_rec(m[1]).paid, 0, "round 0 counts only when the circle starts");
+    }
+
+    function test_record_missesCountAndAFinishIsNotClean() public {
+        _bond(3 * C);
+        _joinAll();
+        _runRound(0);
+        for (uint256 r = 1; r < N; r++) {
+            _drain(0);
+            _runRound(r);
+        }
+        _finish();
+        IRecord.Record memory x = _rec(m[0]);
+        assertEq(x.paid, 1);
+        assertEq(x.missed, N - 1);
+        assertEq(x.finishedClean, 0);
+        assertEq(_rec(m[1]).finishedClean, 1);
+    }
+
+    function test_record_onlyCirclesWriteIt() public {
+        vm.expectRevert(bytes("Record:not-a-circle"));
+        factory.notePaid(m[0]);
+        vm.expectRevert(bytes("Record:not-a-circle"));
+        factory.noteMissed(m[0]);
+    }
+
+    /// An organiser keeps the first two slots for members whose record shows a whole circle paid and nothing missed.
+    function test_earlySlots_refuseNewcomers_admitProvenMembers_refuseAnyMiss() public {
+        // circle A: m[0..3] finish cleanly; m[4] stops paying after collecting last... make m[4] miss one round
+        _joinAll();
+        _runRound(0);
+        uint256 keep = token.balanceOf(m[4]);
+        _drain(4);
+        _runRound(1);
+        _fund(m[4], keep);
+        for (uint256 r = 2; r < N; r++) _runRound(r);
+        _finish();
+        assertGt(_rec(m[4]).missed, 0);
+
+        string[] memory labels = new string[](N);
+        for (uint256 i; i < N; i++) labels[i] = string.concat("B", vm.toString(i));
+        vm.prank(relayer);
+        Circle b = factory.create("Trusted first", labels, Terms(C, PERIOD, 2, N), org, inviteAddr);
+        circle = b;
+        // a stranger with no record cannot take slot 0
+        (address stranger, uint256 sk) = makeAddrAndKey("stranger");
+        _fund(stranger, WALLET);
+        Circle.Sig memory inv = _sig(inviteKey, b.inviteDigest(0, stranger));
+        Circle.Sig memory pay = _sig(sk, _authDigest(stranger, 2 * C, block.timestamp + 1 hours, b.joinNonce(stranger)));
+        Circle.Sig[] memory rounds = new Circle.Sig[](N - 1);
+        for (uint256 r = 1; r < N; r++) rounds[r - 1] = _sig(sk, _authDigest(stranger, C, type(uint256).max, b.nonceFor(r, stranger)));
+        vm.expectRevert(bytes("Circle:record"));
+        b.join(0, stranger, inv, block.timestamp + 1 hours, pay, rounds);
+        // ...but can take a later slot
+        inv = _sig(inviteKey, b.inviteDigest(4, stranger));
+        b.join(4, stranger, inv, block.timestamp + 1 hours, pay, rounds);
+        // m[4] paid a full circle but missed a round: refused an early slot
+        Circle.Sig memory inv4 = _sig(inviteKey, b.inviteDigest(1, m[4]));
+        Circle.Sig memory pay4 = _sig(pk[4], _authDigest(m[4], 2 * C, block.timestamp + 1 hours, b.joinNonce(m[4])));
+        Circle.Sig[] memory r4 = _schedule(4);
+        vm.expectRevert(bytes("Circle:record"));
+        b.join(1, m[4], inv4, block.timestamp + 1 hours, pay4, r4);
+        // m[0] has a clean whole circle: admitted to slot 0
+        _join(0);
+        assertEq(b.members(0), m[0]);
     }
 
     // ---------- timing negatives ----------
