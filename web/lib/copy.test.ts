@@ -6,7 +6,7 @@ import ts from "typescript";
 // A member or organiser never reads these. Matched as whole words, case-insensitive, except MON which is a unit name
 // only when upper case ("Mon 5 Oct" is a weekday).
 const BANNED =
-  /\b(wallet|gas|tokens?|chain|blockchain|crypto|ausd|usdc|address|hash|transactions?|tx|sign|signs|signed|signing|signature|approve|approved|approval|seed|keys?|network|contract|testnet|relayer|web3)\b/i;
+  /\b(wallet|gas|tokens?|chain|blockchain|crypto|ausd|usdc|address|hash|transactions?|tx|sign|signs|signed|signing|signature|approve|approved|approval|seed|keys?|network|contract|testnet|relayer|web3|onchain|escrow|collateral|stake|staking|slash|slashed|slashing|mint|minted|nft|dapp|passkey|passkeys|biometric)\b/i;
 const MON = /\bMON\b/;
 const HEX = /0x[0-9a-f]{6}/i;
 
@@ -49,7 +49,7 @@ test("the scanner reads real surfaces, not an empty set", () => {
 });
 
 test("the scanner can fail: it flags every banned word and ignores import paths", () => {
-  for (const w of ["wallet", "gas", "token", "chain", "blockchain", "crypto", "AUSD", "USDC", "address", "hash", "transaction", "tx", "sign", "signature", "approve", "seed", "key", "network", "contract", "testnet", "relayer", "web3"]) {
+  for (const w of ["wallet", "gas", "token", "chain", "blockchain", "crypto", "AUSD", "USDC", "address", "hash", "transaction", "tx", "sign", "signature", "approve", "seed", "key", "network", "contract", "testnet", "relayer", "web3", "onchain", "escrow", "collateral", "stake", "slashing", "mint", "NFT", "passkey"]) {
     expect(offences(visibleStrings("x.tsx", `export const a = <p>Your ${w} is ready</p>;`)).length).toBe(1);
     expect(offences(visibleStrings("x.ts", `export const a = "Your ${w} is ready";`)).length).toBe(1);
   }

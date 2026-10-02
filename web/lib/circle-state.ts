@@ -1,7 +1,7 @@
 // What a circle snapshot means to a person: who is paid, whose turn it is, what the one sentence says, what the one
 // button does. Pure functions over the chain read, so they are testable without a browser.
 import type { Address } from "viem";
-import { dollars, type Snapshot } from "./chain";
+import { clearsEarlySlot, dollars, type PaymentRecord, type Snapshot } from "./chain";
 import { copy } from "./copy";
 import { sameAddress } from "./session";
 import { countdown, formatDay, formatWhen } from "./time";
@@ -58,7 +58,7 @@ export function sentence(s: Snapshot, now: number): string {
   if (s.paidCount === s.size) return copy.circle.sentenceAllPaid(who);
   if (now > num(s.dueAt) + 120) return copy.circle.sentenceSlow;
   if (now > num(s.dueAt)) return copy.circle.sentenceTimeUp(who);
-  return copy.circle.sentencePaid(num(s.paidCount), num(s.size), who, formatWhen(num(s.dueAt), now));
+  return copy.circle.sentencePaid(num(s.paidCount), num(s.size), who, payoutBy(s, now));
 }
 
 /// The line under the sentence: how long until the round is due, or when it opens.
@@ -69,18 +69,18 @@ export function clockLine(s: Snapshot, now: number): { label: string; value: str
   return { label: copy.circle.dueIn, value: countdown(num(s.dueAt) - now) };
 }
 
-/// When the pot is expected to land: as soon as the round opens if every member has paid or has a standing order
-/// that will pull on opening, otherwise at the due date.
-export function expectedPayout(s: Snapshot, now: number): number {
-  const allSet = s.members.every((m) => m.paidThisRound || m.standing);
-  return allSet && now < num(s.opensAt) ? num(s.opensAt) : num(s.dueAt);
+/// The one rule for when the pot lands, shared by the ring centre, the sentence and (through the due date) the member
+/// rows: by the round's due date. It lands sooner when everyone pays, which the sentence says in words.
+export function payoutBy(s: Snapshot, now: number): string {
+  if (now >= num(s.dueAt) || (s.paidCount === s.size && now >= num(s.opensAt))) return copy.circle.anyMoment;
+  return copy.time.by(formatWhen(num(s.dueAt), now));
 }
 
 export function centre(s: Snapshot, now: number): { big: string; small: string } {
   if (isDone(s)) return { big: copy.circle.centreDone, small: copy.circle.centreDoneSub };
   const small = !isStarted(s)
     ? `${copy.circle.centreTo(recipientName(s))} ${copy.circle.centreWhenFull}`
-    : `${copy.circle.centreTo(recipientName(s))}, ${formatWhen(expectedPayout(s, now), now)}`;
+    : `${copy.circle.centreTo(recipientName(s))}, ${payoutBy(s, now)}`;
   return { big: dollars(pot(s)), small };
 }
 
@@ -118,3 +118,28 @@ export function primaryFor(o: {
 }
 
 export const meIndexOf = (s: Snapshot, me: Address | null | undefined) => s.members.findIndex((m) => sameAddress(m.member, me));
+
+/// What a member's row says about their history: one short line, from the factory's record of every circle it made.
+export function recordLine(r: PaymentRecord): string {
+  if (r.paid === 0 && r.missed === 0) return copy.record.newHere;
+  const rounds = copy.record.paid(r.paid, r.missed);
+  return r.finished > 0 ? `${rounds}, ${copy.record.finished(r.finished)}` : rounds;
+}
+
+export type Terms = { earlySlots: number; minPaid: number };
+export const isKeptPlace = (slot: number, t: Terms) => slot < t.earlySlots;
+
+/// What a person trying to take place `slot` is told once their own record is known: null when they may take it.
+export function keptPlaceBlock(slot: number, t: Terms, r: PaymentRecord, open: number[]): string | null {
+  if (!isKeptPlace(slot, t) || clearsEarlySlot(r, t.minPaid)) return null;
+  return copy.join.keptNotYet(r.paid, r.missed, t.minPaid, open.some((i) => !isKeptPlace(i, t)));
+}
+
+/// The record line under a row: a joined member's history, or for an open kept place what it is kept for. Nothing
+/// when the record could not be read, never a guess.
+export function recordCaption(s: Snapshot, i: number, t: Terms, records: Record<string, PaymentRecord>): string | undefined {
+  const m = s.members[i]!;
+  if (m.member === ZERO) return isKeptPlace(i, t) ? copy.record.kept(t.minPaid) : undefined;
+  const r = records[m.member.toLowerCase()];
+  return r ? recordLine(r) : undefined;
+}

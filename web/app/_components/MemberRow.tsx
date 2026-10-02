@@ -32,9 +32,9 @@ export function Avatar({ name, dim = false }: { name: string; dim?: boolean }) {
   );
 }
 
-export function MemberRow({ name, you, status, caption }: { name: string; you: boolean; status: Status; caption: string }) {
+export function MemberRow({ name, you, status, caption, record }: { name: string; you: boolean; status: Status; caption: string; record?: string }) {
   return (
-    <li className={`row-flip flex h-16 items-center gap-3 rounded-card px-4 ${wash[status]}`}>
+    <li className={`row-flip flex min-h-16 items-center gap-3 rounded-card px-4 py-2 ${wash[status]}`}>
       <Avatar name={name} dim={status === "open"} />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">
@@ -42,6 +42,7 @@ export function MemberRow({ name, you, status, caption }: { name: string; you: b
           {you ? <span className="t-small font-normal text-caption">{` (${copy.circle.youTag})`}</span> : null}
         </span>
         <span className="t-caption block truncate text-caption">{caption}</span>
+        {record ? <span className="t-caption block text-caption">{record}</span> : null}
       </span>
       <span className={`t-small flex items-center gap-2 font-semibold ${word[status]}`}>
         {status === "paid" || status === "collected" ? (

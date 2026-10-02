@@ -10,7 +10,8 @@ function cancelled(e: unknown): boolean {
   return name === "NotAllowedError" || name === "AbortError";
 }
 
-export function plainError(e: unknown): string {
+/// `minPaid` is the circle's bar for its kept places, when the caller knows it, so the sentence can name it.
+export function plainError(e: unknown, minPaid = 0): string {
   if (e instanceof Plain) return e.message;
   if (isMeraError(e)) {
     if (e.code === "PASSKEY_OPERATION_FAILED" && cancelled(e)) return copy.error.unlockCancelled;
@@ -21,6 +22,7 @@ export function plainError(e: unknown): string {
   if (/slot-taken/.test(msg)) return copy.error.slotTaken;
   if (/already-member/.test(msg)) return copy.error.alreadyIn;
   if (/Circle:started/.test(msg)) return copy.error.started;
+  if (/Circle:record/.test(msg)) return minPaid > 0 ? copy.join.keptPlace(minPaid) : copy.error.record;
   if (/practice dollars already/.test(msg)) return copy.error.practiceUsed;
   if (/too many circles/.test(msg)) return copy.error.tooMany;
   if (/Failed to fetch|NetworkError|Load failed|fetch failed/i.test(msg)) return copy.error.offline;

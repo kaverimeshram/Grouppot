@@ -1,14 +1,31 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Address, Hex, LocalAccount } from "viem";
-import { balanceOf, contributeBundle, dollars, inviteLink, joinBundle, parseCircleLocation, readCircle, relay, type Snapshot } from "@/lib/chain";
+import {
+  balanceOf,
+  contributeBundle,
+  dollars,
+  inviteLink,
+  joinBundle,
+  leaveBundle,
+  parseCircleLocation,
+  readCircle,
+  readEarlySlots,
+  readRecord,
+  relay,
+  unbondBundle,
+  type PaymentRecord,
+  type Snapshot,
+} from "@/lib/chain";
 import {
   centre,
   clockLine,
   collectCaption,
   isDone,
   isRoundOpen,
+  isKeptPlace,
   isStarted,
+  keptPlaceBlock,
   meIndexOf,
   num,
   openSlots,
@@ -16,11 +33,14 @@ import {
   organiserName,
   primaryFor,
   recipientName,
+  recordCaption,
   sentence,
   statusOf,
   trustLine,
   ZERO,
+  type Terms,
 } from "@/lib/circle-state";
+import { hasExit, keepsRecord, readRecords } from "@/lib/circle-reads";
 import { copy } from "@/lib/copy";
 import { plainError, Plain } from "@/lib/errors";
 import { addPracticeDollars, practiceAmount } from "@/lib/fund";
@@ -34,7 +54,10 @@ import { Bar, Bone, Button, LinkButton, Notice, Page } from "./ui";
 
 type JoinPhase = "idle" | "unlock" | "needfunds" | "funding" | "joining" | "waiting" | "slow";
 type PayPhase = "idle" | "unlock" | "working" | "waiting";
+type ExitPhase = "idle" | "unlock" | "working" | "waiting";
 type Acct = { address: Address; account: LocalAccount };
+
+const NO_TERMS: Terms = { earlySlots: 0, minPaid: 0 };
 
 const wa = (text: string) => `https://wa.me/?text=${encodeURIComponent(text)}`;
 const textLink = "h-12 font-semibold text-ink underline underline-offset-4";
@@ -139,6 +162,13 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
   const [error, setError] = useState<string | null>(null);
   const [returning, setReturning] = useState(false);
   const [short, setShort] = useState<bigint>(0n);
+  const [terms, setTerms] = useState<Terms | null>(null);
+  const [records, setRecords] = useState<Record<string, PaymentRecord>>({});
+  const [blocked, setBlocked] = useState<string | null>(null);
+  const [exitable, setExitable] = useState(false);
+  const [keeps, setKeeps] = useState(false);
+  const [exitPhase, setExitPhase] = useState<ExitPhase>("idle");
+  const [exitDone, setExitDone] = useState<string | null>(null);
   const acct = useRef<Acct | null>(null);
   const joinStart = useRef(0);
 
@@ -167,6 +197,24 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
     const id = setInterval(() => void refresh(), 10_000);
     return () => clearInterval(id);
   }, [refresh]);
+
+  useEffect(() => {
+    void readEarlySlots(circle).then(setTerms);
+    hasExit(circle).then(setExitable, () => setExitable(false));
+    keepsRecord(circle).then(setKeeps, () => setKeeps(false));
+  }, [circle]);
+
+  const memberKey = snap ? `${snap.members.map((m) => m.member).join()}:${snap.round}:${snap.paidCount}` : "";
+  useEffect(() => {
+    if (!snap || !keeps) return;
+    let live = true;
+    void readRecords(snap.members.filter((m) => m.member !== ZERO).map((m) => m.member)).then((r) => {
+      if (live) setRecords(r);
+    });
+    return () => {
+      live = false;
+    };
+  }, [memberKey, keeps]);
 
   const open = snap ? openSlots(snap) : [];
   useEffect(() => {
@@ -218,6 +266,13 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
   const shortOnPay = youOwe && have !== null && have < s.contribution;
 
   const busy = phase !== "idle" && phase !== "needfunds";
+  const kept = terms ?? NO_TERMS;
+  const exiting = exitPhase !== "idle";
+  const pickSlot = (i: number) => {
+    setBlocked(null);
+    setError(null);
+    setSlot(i);
+  };
 
   async function checkNow() {
     const who = acct.current?.address;
@@ -250,7 +305,7 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
       setMe({ address: a.address, name: label });
       await confirmJoined(a.address);
     } catch (e) {
-      setError(plainError(e));
+      setError(plainError(e, terms?.minPaid));
       setPhase("idle");
       await refresh();
     }
@@ -264,6 +319,15 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
     try {
       acct.current ??= await unlock(label, returning);
       const a = acct.current;
+      const t = terms ?? (await readEarlySlots(circle));
+      if (isKeptPlace(slot, t)) {
+        const why = keptPlaceBlock(slot, t, await readRecord(a.address), open);
+        if (why) {
+          setBlocked(why);
+          setPhase("idle");
+          return;
+        }
+      }
       const bal = await balanceOf(a.address);
       if (bal < need) {
         setShort(need - bal);
@@ -322,6 +386,32 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
       setError(plainError(e));
       setPayPhase("idle");
     }
+  }
+
+  async function exit(kind: "leave" | "unbond") {
+    if (!me) return;
+    const backText = kind === "leave" ? copy.leave.left(total) : copy.leave.bondBack(dollars(s.bond));
+    setError(null);
+    setExitDone(null);
+    setExitPhase("unlock");
+    try {
+      const a = acct.current ?? (await signInWithPasskey());
+      if (!sameAddress(a.address, kind === "leave" ? me.address : s.organiser)) throw new Plain(copy.error.notYou);
+      acct.current = a;
+      setExitPhase("working");
+      await relay(kind, kind === "leave" ? await leaveBundle(a.account, circle) : await unbondBundle(a.account, circle));
+      setExitPhase("waiting");
+      const gone = (v: Snapshot) => (kind === "leave" ? !v.members.some((m) => sameAddress(m.member, a.address)) : v.bond === 0n);
+      const seen = await until(() => readCircle(circle), gone, 2000, 90_000);
+      if (seen) {
+        setSnap(seen);
+        setExitDone(backText);
+      } else setError(copy.join.slow);
+    } catch (e) {
+      setError(plainError(e));
+    }
+    setExitPhase("idle");
+    await refresh();
   }
 
   async function identify() {
@@ -385,6 +475,7 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
       <Page bar={bar !== null}>
         <h1 className="t-headline mt-2 break-words">{s.name}</h1>
         <p className="t-small mt-1 text-caption">{copy.circle.facts(each, copy.periods.label(num(s.period)), num(s.size))}</p>
+        {kept.earlySlots > 0 ? <p className="t-small mt-1 text-caption">{copy.record.keptRule(kept.earlySlots, kept.minPaid)}</p> : null}
 
         <div className="mt-6">
           <Ring
@@ -445,6 +536,32 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
           </section>
         ) : null}
 
+        {exitable && !started && (myRow || (isOrganiser && s.bond > 0n)) ? (
+          <section className="mt-4 flex flex-col items-start">
+            <p className="t-small text-caption">{myRow ? copy.leave.hint : copy.leave.hintBond}</p>
+            {myRow ? (
+              <button type="button" className={`${textLink} t-small disabled:opacity-40`} disabled={exiting} onClick={() => void exit("leave")}>
+                {copy.leave.action(total)}
+              </button>
+            ) : null}
+            {isOrganiser && s.bond > 0n ? (
+              <button type="button" className={`${textLink} t-small disabled:opacity-40`} disabled={exiting} onClick={() => void exit("unbond")}>
+                {copy.leave.actionBond(dollars(s.bond))}
+              </button>
+            ) : null}
+            {exiting ? (
+              <div className="mt-2 w-full" role="status">
+                <Notice>{exitPhase === "waiting" ? copy.leave.waiting : copy.leave.working}</Notice>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+        {exitDone ? (
+          <div className="mt-4">
+            <Notice>{exitDone}</Notice>
+          </div>
+        ) : null}
+
         {meIndex < 0 && !done ? (
           <section className="mt-6">
             {canJoin ? (
@@ -453,8 +570,10 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
                 each={each}
                 total={total}
                 slot={slot}
-                setSlot={setSlot}
+                setSlot={pickSlot}
                 open={open}
+                terms={kept}
+                blocked={blocked}
                 phase={phase}
                 short={short}
                 have={iHave}
@@ -491,6 +610,7 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
               you={i === meIndex}
               status={statusOf(s, i)}
               caption={m.defaults > 0n && m.member !== ZERO ? copy.circle.missed(num(m.defaults)) : collectCaption(s, i)}
+              record={recordCaption(s, i, kept, keeps ? records : {})}
             />
           ))}
         </ul>
@@ -522,6 +642,8 @@ function JoinPanel({
   slot,
   setSlot,
   open,
+  terms,
+  blocked,
   phase,
   short,
   have,
@@ -536,6 +658,8 @@ function JoinPanel({
   slot: number | null;
   setSlot: (i: number) => void;
   open: number[];
+  terms: Terms;
+  blocked: string | null;
   phase: JoinPhase;
   short: bigint;
   have: bigint;
@@ -557,14 +681,22 @@ function JoinPanel({
               role="radio"
               aria-checked={slot === i}
               onClick={() => setSlot(i)}
-              className={`btn flex h-14 items-center rounded-card px-4 text-left font-semibold ${slot === i ? "bg-primary text-primary-ink" : "bg-surface text-ink"}`}
+              className={`btn flex h-14 items-center justify-between gap-3 rounded-card px-4 text-left font-semibold ${slot === i ? "bg-primary text-primary-ink" : "bg-surface text-ink"}`}
             >
-              {s.members[i]!.label}
+              <span className="min-w-0 truncate">{s.members[i]!.label}</span>
+              {isKeptPlace(i, terms) ? <span className="t-caption shrink-0 font-normal">{copy.join.keptTag}</span> : null}
             </button>
           ))}
         </div>
       </fieldset>
       {slot === null ? <p className="t-small mt-2 text-caption">{copy.join.pickFirst}</p> : null}
+      {blocked ? (
+        <div className="mt-3">
+          <Notice tone="problem">{blocked}</Notice>
+        </div>
+      ) : slot !== null && isKeptPlace(slot, terms) ? (
+        <p className="t-small mt-3 text-body">{copy.join.keptPlace(terms.minPaid)}</p>
+      ) : null}
 
       <div className="mt-6 rounded-card bg-surface p-4">
         <div className="flex items-baseline justify-between">

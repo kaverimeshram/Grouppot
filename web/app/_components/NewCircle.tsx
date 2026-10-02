@@ -18,6 +18,7 @@ const PERIODS = [
 ] as const;
 const MIN_PEOPLE = 3;
 const MAX_PEOPLE = 12;
+const MAX_PROVEN = 50;
 
 type Step = "form" | "back" | "work" | "ready";
 
@@ -38,6 +39,8 @@ export function NewCircle() {
   const [people, setPeople] = useState<string[]>(["", "", "", "", ""]);
   const [seconds, setSeconds] = useState<number>(600);
   const [rounds, setRounds] = useState(1);
+  const [keptWanted, setKeptWanted] = useState(0);
+  const [provenRounds, setProvenRounds] = useState(3);
   const [returning, setReturning] = useState(false);
   const [doing, setDoing] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +60,7 @@ export function NewCircle() {
   const n = people.length;
   const maxBack = n - 2;
   const back = Math.min(rounds, maxBack);
+  const kept = Math.min(keptWanted, n - 1);
   const trimmed = people.map((p) => p.trim());
   const sameName = new Set(trimmed.map((p) => p.toLowerCase())).size !== trimmed.length;
   const problem = !name.trim() ? copy.newCircle.errNeedName : trimmed.some((p) => !p) ? copy.newCircle.errNeedPeople : sameName ? copy.newCircle.errSameName : null;
@@ -92,6 +96,8 @@ export function NewCircle() {
           period: seconds,
           organiser: acct.address,
           inviteSigner: p.invite.signer,
+          earlySlots: kept,
+          minPaid: kept > 0 ? provenRounds : 0,
         });
         if (!res.circle) throw new Plain(copy.error.generic);
         p.circle = res.circle;
@@ -283,6 +289,41 @@ export function NewCircle() {
             </button>
           ) : null}
         </fieldset>
+
+        <section className="mt-8">
+          <h2 className="t-small font-semibold">{copy.newCircle.keepHeading}</h2>
+          <p className="t-caption mt-1 text-caption">{copy.newCircle.keepHint}</p>
+          <div className="mt-3">
+            <p className="t-small mb-3 text-body">{copy.newCircle.keepPlaces}</p>
+            <Stepper
+              value={kept}
+              onLess={() => setKeptWanted(Math.max(0, kept - 1))}
+              onMore={() => setKeptWanted(Math.min(n - 1, kept + 1))}
+              canLess={kept > 0}
+              canMore={kept < n - 1}
+              lessLabel={copy.common.less(copy.newCircle.keepPlaces)}
+              moreLabel={copy.common.more(copy.newCircle.keepPlaces)}
+            />
+          </div>
+          {kept > 0 ? (
+            <div className="mt-6">
+              <p className="t-small mb-3 text-body">{copy.newCircle.keepRounds}</p>
+              <Stepper
+                value={provenRounds}
+                onLess={() => setProvenRounds(Math.max(1, provenRounds - 1))}
+                onMore={() => setProvenRounds(Math.min(MAX_PROVEN, provenRounds + 1))}
+                canLess={provenRounds > 1}
+                canMore={provenRounds < MAX_PROVEN}
+                lessLabel={copy.common.less(copy.newCircle.keepRounds)}
+                moreLabel={copy.common.more(copy.newCircle.keepRounds)}
+              />
+            </div>
+          ) : null}
+          <p className="mt-4 rounded-card bg-surface p-4 text-ink" aria-live="polite">
+            {kept > 0 ? copy.newCircle.keepLive(kept, provenRounds) : copy.newCircle.keepNone}
+          </p>
+          {kept > 0 ? <p className="t-small mt-2 text-body">{copy.newCircle.keepOwn}</p> : null}
+        </section>
 
         <div role="radiogroup" aria-label={copy.newCircle.howOften} className="mt-8">
           <p className="t-small mb-3 font-semibold">{copy.newCircle.howOften}</p>

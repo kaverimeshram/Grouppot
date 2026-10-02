@@ -22,6 +22,8 @@ export const copy = {
     tomorrow: (clock: string) => `tomorrow ${clock}`,
     days: (n: number) => plural(n, "day", "days"),
     hours: (n: number) => plural(n, "hour", "hours"),
+    // "Ada collects ___": relative times already read "in 6 min", clock times read "by Friday 6pm"
+    by: (when: string) => (when.startsWith("in ") ? when : `by ${when}`),
   },
 
   periods: {
@@ -70,6 +72,7 @@ export const copy = {
     lead: "Everyone puts in each round and one person collects. grouppot shows who has paid and pays the right person on the day.",
     start: "Start a circle",
     haveLink: "Got an invite link? Open it",
+    seeCircle: "See a circle",
     demoPaying: "Everyone pays in",
     demoCollects: "One person collects",
     demoLabel: "A circle of five people. Each one pays in, then one of them collects, and the turn moves to the next.",
@@ -94,6 +97,14 @@ export const copy = {
     howOften: "How often",
     live: (each: string, pot: string, rounds: number) =>
       `Everyone puts in ${each} a round. Each round one person collects ${pot}. ${rounds} rounds.`,
+    keepHeading: "Keep the first places for proven members",
+    keepHint: "Optional. Everyone else can still join the later places.",
+    keepPlaces: "First places kept",
+    keepRounds: "Rounds paid they need",
+    keepNone: "Every place is open to everyone you invite.",
+    keepLive: (places: number, rounds: number) =>
+      `The first ${places === 1 ? "place goes to someone who has" : `${places} places go to people who have`} paid at least ${plural(rounds, "round", "rounds")} and never missed one.`,
+    keepOwn: "Your own place counts too. If you are new here, move your name below the kept places.",
     next: "Next: back your circle",
     errNeedName: "Give your circle a name.",
     errNeedPeople: "Fill in every name.",
@@ -142,6 +153,7 @@ export const copy = {
     ringPaid: (paid: number, size: number, who: string) => `${paid} of ${size} paid this round. ${who} collects next.`,
     ringSkeleton: "Loading the circle",
     centreTo: (who: string) => `to ${who}`,
+    anyMoment: "any moment now",
     centreWhenFull: "when the circle fills",
     centreDone: "Done",
     centreDoneSub: "everyone collected",
@@ -149,7 +161,7 @@ export const copy = {
     sentenceEmpty: "Nobody has joined yet. Send the link to your group.",
     sentenceFilling: (joined: number, size: number) => `${joined} of ${size} have joined. ${size - joined} to go.`,
     sentenceAllPaid: (who: string) => `Everyone paid. ${who} collects any moment now.`,
-    sentencePaid: (paid: number, size: number, who: string, when: string) => `${paid} of ${size} paid. ${who} collects ${when}.`,
+    sentencePaid: (paid: number, size: number, who: string, when: string) => `${paid} of ${size} paid. ${who} collects ${when}, sooner if everyone pays.`,
     sentenceTimeUp: (who: string) => `Time is up. ${who} collects any moment now.`,
     sentenceSlow: "Payments are slow right now. We are retrying.",
     sentenceNotOpen: (round: number, when: string) => `Round ${round} opens ${when}. Nothing is due yet.`,
@@ -206,6 +218,30 @@ export const copy = {
     already: "Already in? Use your phone lock",
     notFound: "We could not find you in this circle.",
     youAreIn: "You are in.",
+    keptTag: "Kept place",
+    keptPlace: (minPaid: number) => `This place is kept for members who have paid at least ${plural(minPaid, "round", "rounds")} and never missed one.`,
+    keptNotYet: (paid: number, missed: number, minPaid: number, laterOpen: boolean) =>
+      `You have paid ${plural(paid, "round", "rounds")} and missed ${missed === 0 ? "none" : missed}. This place needs at least ${plural(minPaid, "round", "rounds")} paid and none missed. ${laterOpen ? "Pick a later place, those are open to everyone." : "No later place is open right now."}`,
+  },
+
+  record: {
+    newHere: "New here",
+    paid: (n: number, missed: number) => `${plural(n, "round", "rounds")} paid, ${missed === 0 ? "none missed" : `${missed} missed`}`,
+    finished: (n: number) => plural(n, "circle", "circles") + " finished",
+    kept: (minPaid: number) => `Kept for ${minPaid}+ rounds paid, none missed`,
+    keptRule: (places: number, minPaid: number) =>
+      `The first ${places === 1 ? "place is" : `${places} places are`} kept for members who have paid at least ${plural(minPaid, "round", "rounds")} and never missed one.`,
+  },
+
+  leave: {
+    action: (amount: string) => `Leave and get ${amount} back`,
+    actionBond: (amount: string) => `Take back my ${amount} guarantee`,
+    working: "Waiting for your phone lock",
+    waiting: "Putting it back. This takes a few seconds.",
+    left: (amount: string) => `You left. ${amount} is back with you and your place is open again.`,
+    bondBack: (amount: string) => `Your ${amount} guarantee is back with you.`,
+    hint: "You can leave until the circle fills. Everything you put in comes back.",
+    hintBond: "You can take your guarantee back until the circle fills.",
   },
 
   member: {
@@ -252,6 +288,7 @@ export const copy = {
     practiceUsed: "You have already added practice dollars on this phone.",
     slowFunds: "The dollars are taking longer than usual. Check back in a minute.",
     notYou: "That is not the phone lock you joined with. Use the one you joined with.",
+    record: "This place is kept for members who have paid enough rounds and never missed one. Pick a later place.",
     tooMany: "Too many circles from this connection today. Try again tomorrow.",
   },
 } as const;
