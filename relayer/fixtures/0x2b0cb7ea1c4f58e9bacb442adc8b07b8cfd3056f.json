@@ -1,0 +1,103 @@
+{
+ "call": "eth_call snapshot() on 0x2b0cb7ea1c4f58e9bacb442adc8b07b8cfd3056f",
+ "rpc": "Monad testnet 10143",
+ "block": "67554009",
+ "read": "2026-10-02T13:23:06.739Z",
+ "snapshot": {
+  "name": "Lagos Practice Ajo",
+  "organiser": "0x09B18aA7A43ACC55BF7286F9f3a248089569de94",
+  "contribution": {
+   "$bigint": "2000000"
+  },
+  "period": {
+   "$bigint": "600"
+  },
+  "size": {
+   "$bigint": "3"
+  },
+  "joined": {
+   "$bigint": "3"
+  },
+  "start": {
+   "$bigint": "1790939932"
+  },
+  "round": {
+   "$bigint": "3"
+  },
+  "paidCount": {
+   "$bigint": "0"
+  },
+  "opensAt": {
+   "$bigint": "1790941732"
+  },
+  "dueAt": {
+   "$bigint": "1790942332"
+  },
+  "bond": {
+   "$bigint": "0"
+  },
+  "bondPosted": {
+   "$bigint": "2000000"
+  },
+  "balance": {
+   "$bigint": "0"
+  },
+  "members": [
+   {
+    "member": "0x09B18aA7A43ACC55BF7286F9f3a248089569de94",
+    "label": "Kamal",
+    "paidThisRound": false,
+    "standing": false,
+    "cash": {
+     "$bigint": "6000000"
+    },
+    "reserveBal": {
+     "$bigint": "0"
+    },
+    "defaults": {
+     "$bigint": "0"
+    },
+    "owes": {
+     "$bigint": "0"
+    }
+   },
+   {
+    "member": "0x5AC798c2A3D725B0869dcCd881cf5B5D56F21590",
+    "label": "Ada",
+    "paidThisRound": false,
+    "standing": false,
+    "cash": {
+     "$bigint": "6000000"
+    },
+    "reserveBal": {
+     "$bigint": "0"
+    },
+    "defaults": {
+     "$bigint": "0"
+    },
+    "owes": {
+     "$bigint": "0"
+    }
+   },
+   {
+    "member": "0xbae8857F2aa72e246b0A8E5E5BeB9fEc65060275",
+    "label": "Tolu",
+    "paidThisRound": false,
+    "standing": false,
+    "cash": {
+     "$bigint": "6000000"
+    },
+    "reserveBal": {
+     "$bigint": "0"
+    },
+    "defaults": {
+     "$bigint": "0"
+    },
+    "owes": {
+     "$bigint": "0"
+    }
+   }
+  ],
+  "address": "0x2b0cb7ea1c4f58e9bacb442adc8b07b8cfd3056f"
+ }
+}

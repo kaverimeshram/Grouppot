@@ -1,0 +1,139 @@
+{
+ "call": "eth_call snapshot() on 0x4e1afdcfae179debac986830b10473c3fd88f6f3",
+ "rpc": "Monad testnet 10143",
+ "block": "67554009",
+ "read": "2026-10-02T13:23:06.902Z",
+ "snapshot": {
+  "name": "Saturday Ajo",
+  "organiser": "0xaeb3FaCe11513183564d6E8B1d2E2c511Fa0Ba5E",
+  "contribution": {
+   "$bigint": "2000000"
+  },
+  "period": {
+   "$bigint": "604800"
+  },
+  "size": {
+   "$bigint": "5"
+  },
+  "joined": {
+   "$bigint": "5"
+  },
+  "start": {
+   "$bigint": "1790936292"
+  },
+  "round": {
+   "$bigint": "1"
+  },
+  "paidCount": {
+   "$bigint": "4"
+  },
+  "opensAt": {
+   "$bigint": "1791541092"
+  },
+  "dueAt": {
+   "$bigint": "1792145892"
+  },
+  "bond": {
+   "$bigint": "4000000"
+  },
+  "bondPosted": {
+   "$bigint": "4000000"
+  },
+  "balance": {
+   "$bigint": "22000000"
+  },
+  "members": [
+   {
+    "member": "0xaeb3FaCe11513183564d6E8B1d2E2c511Fa0Ba5E",
+    "label": "Ngozi",
+    "paidThisRound": true,
+    "standing": true,
+    "cash": {
+     "$bigint": "4000000"
+    },
+    "reserveBal": {
+     "$bigint": "2000000"
+    },
+    "defaults": {
+     "$bigint": "0"
+    },
+    "owes": {
+     "$bigint": "0"
+    }
+   },
+   {
+    "member": "0x0E5240190d0B62C524Ab0169c11D2312B2b793A6",
+    "label": "Ada",
+    "paidThisRound": true,
+    "standing": true,
+    "cash": {
+     "$bigint": "4000000"
+    },
+    "reserveBal": {
+     "$bigint": "2000000"
+    },
+    "defaults": {
+     "$bigint": "0"
+    },
+    "owes": {
+     "$bigint": "0"
+    }
+   },
+   {
+    "member": "0x604BB2f181b597De6D1A99A1fC46e8B6af6cC3ef",
+    "label": "Tolu",
+    "paidThisRound": true,
+    "standing": true,
+    "cash": {
+     "$bigint": "4000000"
+    },
+    "reserveBal": {
+     "$bigint": "2000000"
+    },
+    "defaults": {
+     "$bigint": "0"
+    },
+    "owes": {
+     "$bigint": "0"
+    }
+   },
+   {
+    "member": "0x9767b9b30053C4Ebb4A35CDE7011e4D05ad9C7Fe",
+    "label": "Bisi",
+    "paidThisRound": false,
+    "standing": true,
+    "cash": {
+     "$bigint": "2000000"
+    },
+    "reserveBal": {
+     "$bigint": "2000000"
+    },
+    "defaults": {
+     "$bigint": "0"
+    },
+    "owes": {
+     "$bigint": "0"
+    }
+   },
+   {
+    "member": "0xe0Ba59BF7bF910fEb84F368F242804E5f2964561",
+    "label": "Kemi",
+    "paidThisRound": true,
+    "standing": true,
+    "cash": {
+     "$bigint": "4000000"
+    },
+    "reserveBal": {
+     "$bigint": "2000000"
+    },
+    "defaults": {
+     "$bigint": "0"
+    },
+    "owes": {
+     "$bigint": "0"
+    }
+   }
+  ],
+  "address": "0x4e1afdcfae179debac986830b10473c3fd88f6f3"
+ }
+}

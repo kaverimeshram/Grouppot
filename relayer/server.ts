@@ -28,11 +28,16 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { circleAbi, factoryAbi } from "../web/lib/abi";
 import { DEPLOYMENT, EARLIER_FACTORIES } from "../web/lib/deployment";
+import type { Snapshot } from "../web/lib/chain";
+import { circleUrl, genericPng, genericPreview, isCircleId, pngFor, previewFor, shareHtml } from "./share";
+import { startTelegram } from "./telegram";
 
 const ROOT = path.resolve(import.meta.dir, "..");
 const PORT = Number(process.env.PORT ?? 3411);
 const RPC = process.env.MONAD_TESTNET_RPC_URL || "https://testnet-rpc.monad.xyz";
 const KEEPER_MS = Number(process.env.KEEPER_MS ?? 20_000);
+// KEEPER_OFF=1: serve and read only, never sign. The Mac mini instance is the one keeper.
+const KEEPER_OFF = process.env.KEEPER_OFF === "1";
 const ORIGINS = (process.env.ALLOWED_ORIGINS ?? "http://localhost:3410").split(",");
 const PRACTICE_PER_ADDRESS = 120_000_000n; // $120 across all circles
 const PERIODS = new Set([600, 3600, 86_400, 604_800, 1_209_600, 2_592_000]);
@@ -72,6 +77,7 @@ type Call = { address: Address; abi: typeof circleAbi | typeof factoryAbi | type
 
 /// Simulate, send with a gas limit 15% above the estimate (Monad charges the limit), and wait for a successful receipt.
 async function send(call: Call): Promise<{ hash: Hex; result: unknown; logs: readonly { address: Address; topics: readonly Hex[]; data: Hex }[] }> {
+  if (KEEPER_OFF) throw new Error("this server is read-only");
   return serial(async () => {
     // reads before broadcast are safe to retry on a dropped request; a revert is final
     const prepare = async () => {
@@ -152,12 +158,24 @@ const routes: Record<string, (b: Record<string, unknown>, ip: string) => Promise
     if (contribution < 1_000_000n || contribution > 1_000_000_000n) throw new Error("between $1 and $1,000 a round");
     const period = Number(b.period);
     if (!PERIODS.has(period)) throw new Error("unsupported schedule");
+    // early slots: the first `earlySlots` places go to members whose record shows `minPaid` rounds paid and none missed
+    const early = Number(b.earlySlots ?? 0);
+    const minPaid = Number(b.minPaid ?? 0);
+    if (!Number.isInteger(early) || early < 0 || early >= labels.length || !Number.isInteger(minPaid) || minPaid < 0 || minPaid > 240) {
+      throw new Error("unsupported early slots");
+    }
     rateLimit(ip, 10);
     const { hash, logs } = await send({
       address: FACTORY,
       abi: factoryAbi,
       functionName: "create",
-      args: [b.name.trim(), labels.map((l: string) => l.trim()), contribution, BigInt(period), addr(b.organiser), addr(b.inviteSigner)],
+      args: [
+        b.name.trim(),
+        labels.map((l: string) => l.trim()),
+        { contribution, period: BigInt(period), earlySlots: BigInt(early), minPaid: BigInt(minPaid) },
+        addr(b.organiser),
+        addr(b.inviteSigner),
+      ],
     });
     const created = logs.find((l) => l.address.toLowerCase() === FACTORY.toLowerCase());
     const circle = created ? (`0x${created.topics[1]!.slice(26)}` as Address) : undefined;
@@ -302,12 +320,49 @@ async function keeperPass() {
 }
 
 let keeping = false;
-setInterval(async () => {
-  if (keeping) return;
-  keeping = true;
-  await keeperPass().catch((e) => log("keeper pass", reason(e)));
-  keeping = false;
-}, KEEPER_MS);
+if (!KEEPER_OFF) {
+  setInterval(async () => {
+    if (keeping) return;
+    keeping = true;
+    await keeperPass().catch((e) => log("keeper pass", reason(e)));
+    keeping = false;
+  }, KEEPER_MS);
+}
+
+// ---------- link previews and chat ----------
+
+// A circle is real if one of the factories made it. A yes never changes; a no is remembered for a minute, so a crawler
+// walking random ids does not turn into three reads each.
+const circleKnown = new Map<string, { ok: boolean; at: number }>();
+async function isGrouppot(c: Address): Promise<boolean> {
+  const hit = circleKnown.get(c.toLowerCase());
+  if (hit && (hit.ok || Date.now() - hit.at < 60_000)) return hit.ok;
+  let ok = false;
+  for (const f of FACTORIES) if (await pub.readContract({ address: f, abi: factoryAbi, functionName: "isCircle", args: [c] })) ok = true;
+  if (circleKnown.size > 5000) circleKnown.clear();
+  circleKnown.set(c.toLowerCase(), { ok, at: Date.now() });
+  return ok;
+}
+
+// Crawlers fetch the page and the picture back to back; one read serves both.
+const snapshots = new Map<string, { at: number; s: Snapshot }>();
+async function snapshotOf(c: Address): Promise<Snapshot> {
+  const hit = snapshots.get(c.toLowerCase());
+  if (hit && Date.now() - hit.at < 10_000) return hit.s;
+  const s = { ...(await pub.readContract({ address: c, abi: circleAbi, functionName: "snapshot" })), address: c };
+  if (snapshots.size > 500) snapshots.clear();
+  snapshots.set(c.toLowerCase(), { at: Date.now(), s });
+  return s;
+}
+
+/// The circle behind ?id=, or null when the id is not a grouppot circle. A failed read throws.
+async function previewTarget(id: string | null): Promise<Snapshot | null> {
+  if (!isCircleId(id)) return null;
+  return (await isGrouppot(id)) ? snapshotOf(id) : null;
+}
+
+const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+const telegram = tgToken ? startTelegram({ token: tgToken, reads: { isCircle: isGrouppot, snapshot: snapshotOf }, file: path.join(DATA, "telegram.json"), log }) : null;
 
 // ---------- http ----------
 
@@ -323,13 +378,35 @@ const server = Bun.serve({
     const url = new URL(req.url);
     const headers = { "content-type": "application/json", ...cors(req.headers.get("origin")) };
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers });
+    if (req.method === "GET" && url.pathname === "/share/c") {
+      const now = Math.floor(Date.now() / 1000);
+      const page = { "content-type": "text/html; charset=utf-8" };
+      try {
+        const s = await previewTarget(url.searchParams.get("id"));
+        return new Response(shareHtml(s ? previewFor(s, now) : genericPreview()), { headers: { ...page, "cache-control": "public, max-age=60" } });
+      } catch (e) {
+        log("share", reason(e));
+        return new Response(shareHtml(genericPreview()), { headers: { ...page, "cache-control": "no-store" } });
+      }
+    }
+    if (req.method === "GET" && url.pathname === "/api/og") {
+      const now = Math.floor(Date.now() / 1000);
+      const image = (body: Uint8Array<ArrayBuffer>, cache: string) => new Response(body, { headers: { "content-type": "image/png", "cache-control": cache } });
+      try {
+        const s = await previewTarget(url.searchParams.get("id"));
+        return s ? image(pngFor(s, now), "public, max-age=300, s-maxage=300") : image(genericPng(), "public, max-age=3600, s-maxage=3600");
+      } catch (e) {
+        log("og", reason(e));
+        return image(genericPng(), "no-store");
+      }
+    }
     if (url.pathname === "/api/health") {
       const [mon, usd, count] = await Promise.all([
         pub.getBalance({ address: account.address }),
         pub.readContract({ address: TOKEN, abi: erc20Abi, functionName: "balanceOf", args: [account.address] }),
         pub.readContract({ address: FACTORY, abi: factoryAbi, functionName: "count" }),
       ]);
-      return Response.json({ ok: true, rpc: RPC === PUBLIC_RPC ? "public" : "private", factory: FACTORY, circles: Number(count), gasReserveMon: Number(mon) / 1e18, practiceDollars: Number(usd) / 1e6 }, { headers });
+      return Response.json({ ok: true, rpc: RPC === PUBLIC_RPC ? "public" : "private", factory: FACTORY, circles: Number(count), keeper: !KEEPER_OFF, telegram: telegram?.ready() ?? false, gasReserveMon: Number(mon) / 1e18, practiceDollars: Number(usd) / 1e6 }, { headers });
     }
     const name = url.pathname.replace(/^\/api\//, "").replace(/\/$/, "");
     const route = req.method === "POST" ? routes[name] : undefined;
@@ -344,4 +421,4 @@ const server = Bun.serve({
     }
   },
 });
-log(`relayer ${account.address} on :${server.port}, factory ${FACTORY}, keeper every ${KEEPER_MS}ms`);
+log(`relayer ${account.address} on :${server.port}, factory ${FACTORY}, ${KEEPER_OFF ? "keeper off, read-only" : `keeper every ${KEEPER_MS}ms`}`);

@@ -1,0 +1,1 @@
+Manrope-500.ttf and Manrope-700.ttf are static instances of Manrope[wght].ttf (github.com/google/fonts, ofl/manrope), cut with fontTools varLib.instancer wght=500 and wght=700, because resvg ignores variable-font axes. Licence: OFL.txt.
