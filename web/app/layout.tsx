@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Manrope } from "next/font/google";
 import { copy } from "@/lib/copy";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-inter", display: "swap" });
+// Manrope: rounded and friendly rather than fintech-cold, tabular figures for the pot, and latin-ext plus vietnamese
+// subsets carry the dot-below letters (ẹ ọ ṣ) in Yoruba names.
+const sans = Manrope({ subsets: ["latin", "latin-ext", "vietnamese"], weight: ["400", "600", "700"], variable: "--font-sans-face", display: "swap" });
 
 export const metadata: Metadata = {
   title: copy.titles.home,
@@ -21,7 +23,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.variable}>{children}</body>
+      <body className={sans.variable}>{children}</body>
     </html>
   );
 }

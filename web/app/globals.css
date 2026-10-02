@@ -3,7 +3,7 @@
 
 @layer base {
   body {
-    --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-sans: var(--font-sans-face), "Manrope", ui-sans-serif, system-ui, sans-serif;
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: var(--text-body--line-height);
