@@ -34,7 +34,7 @@ const iconBtn = "btn flex h-10 w-10 shrink-0 items-center justify-center rounded
 export function NewCircle() {
   const [step, setStep] = useState<Step>("form");
   const [name, setName] = useState("");
-  const [amountAt, setAmountAt] = useState(AMOUNTS.indexOf(10));
+  const [amountAt, setAmountAt] = useState(AMOUNTS.indexOf(2));
   const [people, setPeople] = useState<string[]>(["", "", "", "", ""]);
   const [seconds, setSeconds] = useState<number>(600);
   const [rounds, setRounds] = useState(1);
@@ -101,7 +101,7 @@ export function NewCircle() {
       if (back > 0 && !p.backed) {
         if ((await balanceOf(acct.address)) < backAmount) {
           setDoing(copy.newCircle.stepFunds);
-          await addPracticeDollars(acct.address, circle);
+          await addPracticeDollars(acct.address, circle, backAmount);
         }
         setDoing(copy.newCircle.stepBack(dollars(backAmount)));
         await relay("bond", await bondBundle(acct.account, circle, backAmount));

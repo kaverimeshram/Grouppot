@@ -3,7 +3,7 @@
 //   POST /api/join      invite + pay + standing orders     -> Circle.join
 //   POST /api/contribute  a fresh authorization for the round -> Circle.contribute
 //   POST /api/bond      organiser's guarantee top-up       -> Circle.addBond
-//   POST /api/practice  testnet only: practice dollars, once per address
+//   POST /api/practice  testnet only: practice dollars, once per address per circle
 //   GET  /api/health
 // Keeper, every KEEPER_MS: pulls standing orders when a round opens, pays out when a round is full or due, and returns
 // set-asides and the guarantee after the last round. Every write is simulated first, so the relayer only spends gas on
@@ -31,7 +31,7 @@ const PORT = Number(process.env.PORT ?? 3411);
 const RPC = process.env.MONAD_TESTNET_RPC_URL ?? "https://testnet-rpc.monad.xyz";
 const KEEPER_MS = Number(process.env.KEEPER_MS ?? 20_000);
 const ORIGINS = (process.env.ALLOWED_ORIGINS ?? "http://localhost:3410").split(",");
-const PRACTICE_MAX = 60_000_000n; // $60
+const PRACTICE_PER_ADDRESS = 120_000_000n; // $120 across all circles
 const PERIODS = new Set([600, 3600, 86_400, 604_800, 1_209_600, 2_592_000]);
 const DATA = path.join(ROOT, "relayer/data");
 const FACTORY = DEPLOYMENT.factory as Address;
@@ -174,29 +174,35 @@ const routes: Record<string, (b: Record<string, unknown>, ip: string) => Promise
     return { hash, circle };
   },
 
-  /// Testnet practice dollars: enough for one circle's join and every round, at most $60, once per address.
+  /// Testnet practice dollars for one circle: round 1, the set-aside and every later round, plus the guarantee when the
+  /// organiser asks. Once per address per circle; at most PRACTICE_PER_ADDRESS per address in total.
   async practice(b) {
     const who = addr(b.address).toLowerCase() as Address;
-    if (practiced[who]) throw new Error("practice dollars already added for this phone");
-    let amount = 40_000_000n;
-    if (b.circle) {
-      const circle = await knownCircle(b.circle);
-      const [c, n] = await Promise.all([
-        pub.readContract({ address: circle, abi: circleAbi, functionName: "contribution" }),
-        pub.readContract({ address: circle, abi: circleAbi, functionName: "size" }),
-      ]);
-      amount = (n + 1n) * c; // round 0 + set-aside + every later round
-      if (amount > PRACTICE_MAX) amount = PRACTICE_MAX;
+    const circle = await knownCircle(b.circle);
+    const k = `${who}:${circle.toLowerCase()}`;
+    if (practiced[k]) throw new Error("practice dollars already added for this phone");
+    const [c, n, organiser] = await Promise.all([
+      pub.readContract({ address: circle, abi: circleAbi, functionName: "contribution" }),
+      pub.readContract({ address: circle, abi: circleAbi, functionName: "size" }),
+      pub.readContract({ address: circle, abi: circleAbi, functionName: "organiser" }),
+    ]);
+    let amount = (n + 1n) * c;
+    if (b.bond !== undefined) {
+      const bond = big(b.bond);
+      if (organiser.toLowerCase() !== who || bond > (n - 2n) * c) throw new Error("guarantee too large");
+      amount += bond;
     }
-    practiced[who] = "pending";
+    const spent = Object.entries(practiced).filter(([key]) => key.startsWith(`${who}:`)).reduce((t, [, v]) => t + BigInt(v.split("|")[1] ?? "0"), 0n);
+    if (spent + amount > PRACTICE_PER_ADDRESS) throw new Error("practice dollars already added for this phone");
+    practiced[k] = "pending|0";
     try {
       const { hash } = await send({ address: TOKEN, abi: erc20Abi, functionName: "transfer", args: [who, amount] });
-      practiced[who] = hash;
+      practiced[k] = `${hash}|${amount}`;
       fs.writeFileSync(practiceFile, JSON.stringify(practiced, null, 1));
-      log("practice", who, amount, hash);
+      log("practice", who, circle, amount, hash);
       return { hash, amount: amount.toString() };
     } catch (e) {
-      delete practiced[who];
+      delete practiced[k];
       throw e;
     }
   },

@@ -202,7 +202,7 @@ export const copy = {
     needGap: (need: string, have: string, gap: string) => `You need ${need} to join. You have ${have}. Add ${gap}.`,
     addButton: (amount: string) => `Add ${amount} practice dollars`,
     adding: "Adding...",
-    practiceNote: "Practice dollars. They cannot be sent out of the app.",
+    practiceNote: "Practice dollars for trying grouppot. They have no cash value.",
     already: "Already in? Use your phone lock",
     notFound: "We could not find you in this circle.",
     youAreIn: "You are in.",
