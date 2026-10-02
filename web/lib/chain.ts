@@ -76,6 +76,30 @@ async function joinNonceFor(circle: Address, member: Address): Promise<Hex> {
   }
 }
 
+export type PaymentRecord = { paid: number; missed: number; finished: number; finishedClean: number };
+
+/// A member's payment record across every circle the current factory made. Circles from earlier factories kept none.
+export async function readRecord(member: Address): Promise<PaymentRecord> {
+  const r = await publicClient.readContract({ address: FACTORY, abi: factoryAbi, functionName: "recordOf", args: [member] });
+  return { paid: Number(r.paid), missed: Number(r.missed), finished: Number(r.finished), finishedClean: Number(r.finishedClean) };
+}
+
+/// Early-slot terms of a circle; circles from earlier factories have none.
+export async function readEarlySlots(circle: Address): Promise<{ earlySlots: number; minPaid: number }> {
+  try {
+    const [earlySlots, minPaid] = await Promise.all([
+      publicClient.readContract({ address: circle, abi: circleAbi, functionName: "earlySlots" }),
+      publicClient.readContract({ address: circle, abi: circleAbi, functionName: "minPaid" }),
+    ]);
+    return { earlySlots: Number(earlySlots), minPaid: Number(minPaid) };
+  } catch {
+    return { earlySlots: 0, minPaid: 0 };
+  }
+}
+
+/// Whether a record clears a circle's early-slot bar (Circle.join's rule).
+export const clearsEarlySlot = (r: PaymentRecord, minPaid: number) => r.paid >= minPaid && r.missed === 0;
+
 // ---------- signatures ----------
 
 const receiveTypes = {

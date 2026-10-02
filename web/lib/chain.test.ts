@@ -39,3 +39,13 @@ test("dollars and links", () => {
   expect(parseCircleLocation(u.search, u.hash)).toEqual({ circle: c, inviteKey: k });
   expect(parseCircleLocation("?id=nope", "#k=zz")).toEqual({ circle: null, inviteKey: null });
 });
+
+test("payment record reads from the live factory, and the early-slot rule matches the contract", async () => {
+  const { readRecord, readEarlySlots, clearsEarlySlot } = await import("./chain");
+  const r = await readRecord("0x000000000000000000000000000000000000dEaD");
+  expect(r).toEqual({ paid: 0, missed: 0, finished: 0, finishedClean: 0 });
+  expect(await readEarlySlots("0x4e1afdcfae179debac986830b10473c3fd88f6f3")).toEqual({ earlySlots: 0, minPaid: 0 });
+  expect(clearsEarlySlot({ paid: 5, missed: 0, finished: 1, finishedClean: 1 }, 5)).toBe(true);
+  expect(clearsEarlySlot({ paid: 5, missed: 1, finished: 1, finishedClean: 0 }, 5)).toBe(false);
+  expect(clearsEarlySlot({ paid: 4, missed: 0, finished: 0, finishedClean: 0 }, 5)).toBe(false);
+});
