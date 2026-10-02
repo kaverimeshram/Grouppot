@@ -1,0 +1,8 @@
+{
+  "name": "grouppot",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "viem": "^2.37.0"
+  }
+}
