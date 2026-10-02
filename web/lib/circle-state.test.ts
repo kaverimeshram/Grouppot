@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Snapshot } from "./chain";
-import { organiserName, primaryFor, sentence, statusOf, trustLine, ZERO } from "./circle-state";
+import { expectedPayout, organiserName, primaryFor, sentence, statusOf, trustLine, ZERO } from "./circle-state";
 import { countdown, formatWhen } from "./time";
 
 const A = "0x00000000000000000000000000000000000000a1";
@@ -95,4 +95,14 @@ test("times read as people say them", () => {
   expect(countdown(2 * 86_400 + 4 * 3600)).toBe("2 days 4 hours");
   expect(countdown(5 * 3600 + 12 * 60)).toBe("5h 12m");
   expect(countdown(42 * 60 + 10)).toBe("42m 10s");
+});
+
+test("the pot is expected when the round opens if every standing order is in place, else at the due date", () => {
+  const all = circle([member(A, "Ngozi"), member(B, "Ada"), member(C3, "Tolu")]);
+  expect(expectedPayout(all, 1_000)).toBe(1_600);
+  const gap = circle([member(A, "Ngozi"), member(B, "Ada", { standing: false }), member(C3, "Tolu")]);
+  expect(expectedPayout(gap, 1_000)).toBe(2_200);
+  const paidInstead = circle([member(A, "Ngozi"), member(B, "Ada", { standing: false, paidThisRound: true }), member(C3, "Tolu")]);
+  expect(expectedPayout(paidInstead, 1_000)).toBe(1_600);
+  expect(expectedPayout(all, 1_700)).toBe(2_200);
 });

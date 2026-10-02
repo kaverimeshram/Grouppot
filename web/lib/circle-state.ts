@@ -69,11 +69,18 @@ export function clockLine(s: Snapshot, now: number): { label: string; value: str
   return { label: copy.circle.dueIn, value: countdown(num(s.dueAt) - now) };
 }
 
+/// When the pot is expected to land: as soon as the round opens if every member has paid or has a standing order
+/// that will pull on opening, otherwise at the due date.
+export function expectedPayout(s: Snapshot, now: number): number {
+  const allSet = s.members.every((m) => m.paidThisRound || m.standing);
+  return allSet && now < num(s.opensAt) ? num(s.opensAt) : num(s.dueAt);
+}
+
 export function centre(s: Snapshot, now: number): { big: string; small: string } {
   if (isDone(s)) return { big: copy.circle.centreDone, small: copy.circle.centreDoneSub };
   const small = !isStarted(s)
     ? `${copy.circle.centreTo(recipientName(s))} ${copy.circle.centreWhenFull}`
-    : `${copy.circle.centreTo(recipientName(s))}, ${formatWhen(num(s.dueAt), now)}`;
+    : `${copy.circle.centreTo(recipientName(s))}, ${formatWhen(expectedPayout(s, now), now)}`;
   return { big: dollars(pot(s)), small };
 }
 
