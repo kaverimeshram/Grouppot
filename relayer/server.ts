@@ -398,7 +398,15 @@ async function previewTarget(id: string | null): Promise<Snapshot | null> {
   return (await isGrouppot(id)) ? snapshotOf(id) : null;
 }
 
-const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+// The bot token comes from the environment or from .secrets/telegram.env (either the bare token or
+// TELEGRAM_BOT_TOKEN=<token>), read here so no shell ever evaluates it. Never logged.
+const tgToken = (() => {
+  if (process.env.TELEGRAM_BOT_TOKEN) return process.env.TELEGRAM_BOT_TOKEN;
+  const file = path.join(ROOT, ".secrets/telegram.env");
+  if (!fs.existsSync(file)) return undefined;
+  const raw = fs.readFileSync(file, "utf8").trim().replace(/^export\s+/, "").replace(/^TELEGRAM_BOT_TOKEN\s*=\s*/, "").replace(/^["']|["']$/g, "");
+  return /^\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(raw) ? raw : undefined;
+})();
 const telegram = tgToken ? startTelegram({ token: tgToken, reads: { isCircle: isGrouppot, snapshot: snapshotOf }, file: path.join(DATA, "telegram.json"), log }) : null;
 
 // ---------- http ----------
