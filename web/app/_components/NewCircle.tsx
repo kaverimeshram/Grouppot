@@ -3,10 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import type { Address, Hex, LocalAccount } from "viem";
 import { balanceOf, bondBundle, dollars, newInviteKey, readCircle, relay, toUnits, inviteLink } from "@/lib/chain";
 import { copy } from "@/lib/copy";
-import { plainError, Plain } from "@/lib/errors";
+import { NoPasskeyHere, plainError, Plain } from "@/lib/errors";
 import { addPracticeDollars } from "@/lib/fund";
 import { until } from "@/lib/poll";
-import { loadMe, saveInvite, unlock } from "@/lib/session";
+import { loadMe, saveCircle, saveInvite, unlock } from "@/lib/session";
 import { Bar, Button, LinkButton, Notice, Page, Stepper } from "./ui";
 
 const AMOUNTS = [1, 2, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
@@ -101,6 +101,9 @@ export function NewCircle() {
         });
         if (!res.circle) throw new Plain(copy.error.generic);
         p.circle = res.circle;
+        const created = await readCircle(p.circle);
+        if (created.organiser.toLowerCase() !== acct.address.toLowerCase()) throw new Plain(copy.error.generic);
+        saveCircle(acct.address, p.circle);
         saveInvite(p.circle, p.invite.key);
       }
       const circle = p.circle;
@@ -121,6 +124,7 @@ export function NewCircle() {
       setMade({ circle, link: inviteLink(location.origin, circle, p.invite.key) });
       setStep("ready");
     } catch (e) {
+      if (e instanceof NoPasskeyHere) setReturning(false);
       setError(plainError(e));
       setStep("back");
     }

@@ -12,6 +12,8 @@ export const copy = {
     home: "grouppot: a savings circle everyone can see",
     start: "grouppot: start a circle",
     circle: "grouppot: your circle",
+    tab: "grouppot: split a bill",
+    tabNew: "grouppot: open a bill tab",
   },
 
   time: {
@@ -73,9 +75,18 @@ export const copy = {
     start: "Start a circle",
     haveLink: "Got an invite link? Open it",
     seeCircle: "See a circle",
+    splitBill: "Split a bill with friends",
     demoPaying: "Everyone pays in",
     demoCollects: "One person collects",
     demoLabel: "A circle of five people. Each one pays in, then one of them collects, and the turn moves to the next.",
+    howHeading: "How a circle works",
+    steps: [
+      { title: "Start a circle", body: "Name it, add your people in the order they collect, and choose how much each person puts in and how often." },
+      { title: "Send one link", body: "Share it in your group chat. Each person opens it and joins with the lock they use to open their phone. No password, no app to install." },
+      { title: "Every round pays itself", body: "Joining puts in the first round and sets one more aside. After that each round is taken on its day, so nobody has to chase anyone." },
+      { title: "The right person collects", body: "When everyone has paid, or the round is due, the pot goes to whoever's turn it is. Nobody can change the order." },
+    ],
+    protectHeading: "Your money is protected",
     points: [
       "Everyone sees who has paid, before they join and after.",
       "The money is held by the circle and its rules are public. Not by the organiser.",
@@ -270,15 +281,51 @@ export const copy = {
   empty: {
     heading: "You are not in a circle yet.",
     lead: "Open the link your organiser sent.",
+    findHeading: "Already made or joined one?",
+    findLead: "Unlock with the phone lock you used to start or join a circle.",
+    find: "Find my circles",
+    finding: "Checking your phone lock",
+    searching: "Looking for circles you made or joined.",
+    noneFound: "No circles are linked to this phone lock yet.",
     pasteLabel: "Paste the link here",
     pastePlaceholder: "Link from your organiser",
     open: "Open circle",
     pasteBad: "That link does not open a circle. Check it and paste it again.",
   },
 
+  tab: {
+    newHeading: "Open a bill tab",
+    newLead: "One total, split evenly. Each person pays only their share.",
+    tabName: "What was it for?",
+    total: "Bill total",
+    friends: "Friends on this tab",
+    friendName: "Friend's name",
+    friendId: "Friend's id",
+    addFriend: "Add friend",
+    open: "Open tab",
+    unlockNew: "I am new here",
+    unlockReturn: "I have used grouppot before",
+    yourName: "Your name",
+    whoOwes: "Who owes what",
+    settled: "Paid",
+    due: "Due",
+    showMe: "Show my row",
+    practice: "Add practice dollars for me",
+    payShare: "Pay my share",
+    paidAlready: "You already paid",
+    everyonePaid: "Everyone paid.",
+    loading: "Loading tab…",
+    missingLink: "Missing tab link",
+    errFriends: "Add at least one friend on the tab.",
+    errBill: "Name the bill and enter the total.",
+    errFriend: "Add a name and id for each friend.",
+    pool: (total: string, paid: string, pool: string) => `Total ${total} · Paid ${paid} · Pool ${pool}`,
+  },
+
   error: {
     load: "We could not load this circle. Check the link, then try again.",
     unlockCancelled: "No problem. Try again when you're ready.",
+    noPasskeyHere: "This phone has no grouppot lock yet, or you closed the prompt. Press the button to set one up here, or tap I have used grouppot before to try again.",
     unlockUnavailable: "This browser can't use your phone's lock here. Open this link on your phone in Chrome or Safari.",
     generic: "That did not go through. Nothing was charged. Try again.",
     offline: "Could not connect. Check your internet and try again.",
@@ -290,5 +337,109 @@ export const copy = {
     notYou: "That is not the phone lock you joined with. Use the one you joined with.",
     record: "This place is kept for members who have paid enough rounds and never missed one. Pick a later place.",
     tooMany: "Too many circles from this connection today. Try again tomorrow.",
+  },
+  // Each answer is a list of blocks: a string is a paragraph, an array of strings is a bulleted list.
+  faq: {
+    heading: "Questions",
+    items: [
+      {
+        q: "What does grouppot cost?",
+        a: ["Nothing. Members put in the round amount and nothing more, and grouppot takes no share of any pot."],
+      },
+      {
+        q: "Do members need to install anything?",
+        a: ["No. The invite link opens in the phone's browser, and members join with the lock they already use to open their phone."],
+      },
+      {
+        q: "Can I leave before the circle starts?",
+        a: ["Yes. Until every place is filled, a member can leave and get back everything they put in, and their place opens again for someone else."],
+      },
+      {
+        q: "What happens after the last round?",
+        a: ["Everyone's set-aside comes back to them, after anything they owe is paid, and the organiser gets back what is left of her guarantee."],
+      },
+      {
+        q: "Can the organiser run off with the money?",
+        a: [
+          "No. The money sits in the circle itself, never with the organiser. The order of who collects is fixed when the circle starts, and each round's pot can only go to the person whose turn it is. Nobody, the organiser included, can send it anywhere else or change the order.",
+          "The only money the organiser can take back is her own guarantee: all of it before the circle fills, or what is left of it after the last round.",
+        ],
+      },
+      {
+        q: "What if someone collects early and then stops paying?",
+        a: [
+          "Take a circle of 10 people paying $100 a round. Whoever collects first gets $1,000 after putting in $200: their first $100, plus $100 they set aside when they joined. They still owe $900. If they stop paying:",
+          [
+            "Their own $100 set-aside covers the first round they miss.",
+            "The organiser's guarantee covers the rounds after that, as far as it goes.",
+            "Anything the guarantee does not cover leaves the people who collect later short, and is kept against the person who stopped as money they owe.",
+            "Every missed round goes on their payment record, which every grouppot circle can see.",
+          ],
+        ],
+      },
+      {
+        q: "How big a guarantee covers everyone?",
+        a: [
+          "Enough for the number of people in the circle minus two rounds. In a circle of 10 at $100 a round, that is $800: it covers the person who collects first if they never pay again.",
+          "When starting a circle, the organiser chooses how many missed rounds to cover, from none up to exactly that amount. It starts at one round. With the full amount, everyone else gets back all they put in and the organiser carries the loss she chose to cover.",
+        ],
+      },
+      {
+        q: "What if two early collectors both stop paying?",
+        a: [
+          "The guarantee is one shared amount. At its largest it covers one person who stops after collecting first. If a second early collector also stops, the guarantee runs out and the people who collect after them get less, by exactly the rounds that went unpaid. That is why the first places matter most.",
+        ],
+      },
+      {
+        q: "What if someone stops paying before their turn?",
+        a: [
+          "They gain nothing. When their turn comes, their payout first pays back everyone they left short and refills their set-aside. Only what is left reaches them.",
+        ],
+      },
+      {
+        q: "Who should collect first?",
+        a: [
+          "Only an early collector can walk away ahead. Whoever collects last has paid every round before getting anything.",
+          "When starting a circle, the organiser can keep the first places for people with a record of a set number of rounds paid and none missed. Newcomers still join, in the later places. Kept places are off unless the organiser turns them on.",
+        ],
+      },
+      {
+        q: "What is the payment record?",
+        a: [
+          "Every grouppot circle writes to the same record: rounds paid, rounds missed and circles finished. Members see it before they join and after. A missed round stays on it, so someone who walks away can never take a kept place in a grouppot circle again.",
+        ],
+      },
+      {
+        q: "Can someone build a clean record cheaply, then walk away from a big circle?",
+        a: [
+          "The record counts rounds, not amounts, so someone could pay a few small rounds to earn a kept place in a large circle. For a large circle, keep the first places for people you know as well as people with a record, ask for more rounds paid, and back the circle with a guarantee.",
+        ],
+      },
+      {
+        q: "Can someone start over with a new account?",
+        a: [
+          "Yes, but a new account has no record, so it cannot take a kept place. It joins the later places, where a member has paid in more before they collect, and has less to walk away with.",
+        ],
+      },
+      {
+        q: "Can grouppot get the money back from someone who walks away?",
+        a: [
+          "No. What they owe is kept on the circle and everyone in it can see it, but the circle can only use money that was set aside or put up as a guarantee. Getting the rest back is between the people in the circle, as it is today.",
+        ],
+      },
+      {
+        q: "Why not make early collectors put more in up front?",
+        a: [
+          "That would cover every case: hold back enough from each early collector to pay every round they still owe. But people take the early places because they need the money first, and asking them to put most of it in up front takes that away. grouppot asks every member to set aside one round, and lets the organiser stand behind her circle with a guarantee.",
+        ],
+      },
+      {
+        q: "So is my money safe?",
+        a: [
+          "From the organiser, yes: she cannot touch the pot. From a member who collects early and then stops paying, you are covered by their set-aside and by the organiser's guarantee, up to the amount she put up.",
+          "Before you join, check two things on the circle's page: how many missed rounds the guarantee covers, and the payment records of the people who collect before you.",
+        ],
+      },
+    ],
   },
 } as const;

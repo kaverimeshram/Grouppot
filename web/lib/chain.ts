@@ -199,7 +199,7 @@ export async function unbondBundle(account: LocalAccount, circle: Address) {
 
 // ---------- relayer ----------
 
-export type Relayed = { hash: Hex; circle?: Address };
+export type Relayed = { hash: Hex; circle?: Address; tab?: Address };
 
 /// POSTs to the relayer and returns only once the transaction is mined successfully. A hash alone is an accepted
 /// request; the caller still reads the circle back to confirm the effect.

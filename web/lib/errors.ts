@@ -3,8 +3,10 @@ import { isMeraError } from "@category-labs/mera";
 import { copy } from "./copy";
 
 export class Plain extends Error {}
+/// Sign-in found no passkey it could open: the person cancelled, or this phone never made one (the browser reports both as NotAllowedError).
+export class NoPasskeyHere extends Plain {}
 
-function cancelled(e: unknown): boolean {
+export function cancelled(e: unknown): boolean {
   const cause = (e as { cause?: { name?: string } } | null)?.cause;
   const name = cause?.name ?? (e as { name?: string } | null)?.name;
   return name === "NotAllowedError" || name === "AbortError";

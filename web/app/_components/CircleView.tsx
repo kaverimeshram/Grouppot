@@ -42,13 +42,14 @@ import {
 } from "@/lib/circle-state";
 import { hasExit, keepsRecord, readRecords } from "@/lib/circle-reads";
 import { copy } from "@/lib/copy";
-import { plainError, Plain } from "@/lib/errors";
+import { NoPasskeyHere, plainError, Plain } from "@/lib/errors";
 import { addPracticeDollars, practiceAmount } from "@/lib/fund";
 import { until } from "@/lib/poll";
-import { loadInvite, loadMe, saveMe, sameAddress, unlock, type Me } from "@/lib/session";
+import { loadInvite, loadMe, saveCircle, saveMe, sameAddress, unlock, type Me } from "@/lib/session";
 import { signInWithPasskey } from "@/lib/passkey";
 import { formatDay, formatWhen } from "@/lib/time";
 import { MemberRow } from "./MemberRow";
+import { MyCircles } from "./MyCircles";
 import { Ring, type ArcState } from "./Ring";
 import { Bar, Bone, Button, LinkButton, Notice, Page } from "./ui";
 
@@ -78,7 +79,7 @@ export function CircleView() {
   }, []);
 
   if (!loc) return <Skeleton />;
-  if (!loc.circle) return <Paste />;
+  if (!loc.circle) return <><Paste /><div className="mx-auto w-full max-w-[430px] px-4 pb-8"><MyCircles setMe={setMe} /></div></>;
   return <Loaded circle={loc.circle} inviteKey={loc.key} me={me} setMe={setMe} now={now} />;
 }
 
@@ -201,20 +202,23 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
   useEffect(() => {
     void readEarlySlots(circle).then(setTerms);
     hasExit(circle).then(setExitable, () => setExitable(false));
-    keepsRecord(circle).then(setKeeps, () => setKeeps(false));
   }, [circle]);
 
   const memberKey = snap ? `${snap.members.map((m) => m.member).join()}:${snap.round}:${snap.paidCount}` : "";
   useEffect(() => {
-    if (!snap || !keeps) return;
+    if (!snap) return;
     let live = true;
-    void readRecords(snap.members.filter((m) => m.member !== ZERO).map((m) => m.member)).then((r) => {
-      if (live) setRecords(r);
+    // The record read starts with the snapshot, not after the "does this circle keep a record" read, so the lines
+    // are on screen together with the rows.
+    void Promise.all([keepsRecord(circle).catch(() => false), readRecords(snap.members.filter((m) => m.member !== ZERO).map((m) => m.member))]).then(([k, r]) => {
+      if (!live) return;
+      setKeeps(k);
+      setRecords(r);
     });
     return () => {
       live = false;
     };
-  }, [memberKey, keeps]);
+  }, [memberKey, circle]);
 
   const open = snap ? openSlots(snap) : [];
   useEffect(() => {
@@ -289,6 +293,7 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
       setSnap(seen);
       setPhase("idle");
     } else setPhase("slow");
+    return !!seen;
   }
 
   async function finishJoin(a: Acct, label: string) {
@@ -303,7 +308,7 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
       setPhase("waiting");
       saveMe({ address: a.address, name: label });
       setMe({ address: a.address, name: label });
-      await confirmJoined(a.address);
+      if (await confirmJoined(a.address)) saveCircle(a.address, circle);
     } catch (e) {
       setError(plainError(e, terms?.minPaid));
       setPhase("idle");
@@ -337,6 +342,7 @@ function Loaded({ circle, inviteKey, me, setMe, now }: { circle: Address; invite
       }
       await finishJoin(a, label);
     } catch (e) {
+      if (e instanceof NoPasskeyHere) setReturning(false);
       setError(plainError(e));
       setPhase("idle");
     }
