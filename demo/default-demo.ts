@@ -5,7 +5,7 @@
 // Usage: RELAYER=https://teslas-mac-mini.tail57f771.ts.net:10000/grouppot bun run demo/default-demo.ts
 import fs from "node:fs";
 import path from "node:path";
-import { createWalletClient, erc20Abi, http, type Address, type Hex } from "viem";
+import { createPublicClient, createWalletClient, erc20Abi, http, parseEther, type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { balanceOf, bondBundle, chain, dollars, joinBundle, newInviteKey, readCircle, relay, toUnits, TOKEN, RPC } from "../web/lib/chain";
 
@@ -45,6 +45,12 @@ step("round 1 paid on fill");
 
 const bisi = members[3]!.account;
 const w = createWalletClient({ account: bisi, chain, transport: http(RPC) });
+// Moving her balance out is her own transaction, so she needs gas: a little MON from the relayer, logged in owners.log.
+const { key: relayerKey } = JSON.parse(fs.readFileSync(path.join(import.meta.dir, "../.secrets/relayer.json"), "utf8")) as { key: Hex };
+const gasHash = await createWalletClient({ account: privateKeyToAccount(relayerKey), chain, transport: http(RPC) }).sendTransaction({ to: bisi.address, value: parseEther("0.05") });
+const receipt = await createPublicClient({ chain, transport: http(RPC) }).waitForTransactionReceipt({ hash: gasHash, timeout: 120_000 });
+if (receipt.status !== "success") throw new Error(`gas for the stopping member reverted: ${gasHash}`);
+fs.appendFileSync(path.join(import.meta.dir, "owners.log"), `${bisi.address} script member that stops paying (0.05 MON gas) ${run} ${gasHash}\n`);
 const left = await balanceOf(bisi.address);
 const back = await w.writeContract({ address: TOKEN, abi: erc20Abi, functionName: "transfer", args: [TREASURY, left] });
 step("Bisi stops paying: balance moved out", { amount: dollars(left), hash: back });

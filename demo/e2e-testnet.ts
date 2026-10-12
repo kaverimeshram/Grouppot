@@ -33,14 +33,14 @@ async function waitFor<T>(what: string, read: () => Promise<T>, ok: (v: T) => bo
   }
 }
 
-// 1. organiser: practice dollars, create, guarantee
+// 1. organiser: create the circle, get its practice dollars, post the guarantee
 const invite = newInviteKey();
-const p0 = await relay("practice", { address: org.address }, BASE);
-await waitFor("organiser funded", () => balanceOf(org.address), (b) => b > 0n);
-step("organiser practice dollars", { hash: p0.hash });
 const created = await relay("create", { name: `Practice Ajo ${run}`, labels: members.map((m) => m.name), contribution: C.toString(), period: PERIOD, organiser: org.address, inviteSigner: invite.signer }, BASE);
 const circle = created.circle as Address;
 step("circle created", { circle, hash: created.hash });
+const p0 = await relay("practice", { address: org.address, circle }, BASE);
+await waitFor("organiser funded", () => balanceOf(org.address), (b) => b > 0n);
+step("organiser practice dollars", { hash: p0.hash });
 const bond = await relay("bond", await bondBundle(org, circle, C), BASE);
 const afterBond = await readCircle(circle);
 if (afterBond.bond !== C) throw new Error(`guarantee not on chain: ${afterBond.bond}`);

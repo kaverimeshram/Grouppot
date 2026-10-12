@@ -1,6 +1,14 @@
-# grouppot demo circle (Monad testnet)
+# grouppot demo circle (Monad testnet, factory v4 0xb7a5618c080d7702ad81cdd1d257c2e14065f0d2)
 
-Saturday Ajo: 0x4e1afdcfae179debac986830b10473c3fd88f6f3
-Circle page: /c/?id=0x4e1afdcfae179debac986830b10473c3fd88f6f3
-Invite key: kept in demo/.wallets.json as seed-invite (the circle is full, so it admits nobody).
-State at seeding (2026-10-02): round 2 of 5, 4 of 5 paid early, $4 guarantee. Round 2 opens Fri 09 Oct 2026 10:18 UTC: the keeper pulls Bisi's standing order and pays Ada the $10 pot, unless Bisi's balance is empty, in which case her set-aside covers it at the due date.
+Saturday Ajo: 0xc4ae9c3734800075c13a7b850ddf771dcce9c0ce
+Circle page: /c/?id=0xc4ae9c3734800075c13a7b850ddf771dcce9c0ce
+
+Made through /new/ on the live site with three phone-lock accounts: three people, $5 a week, the first place kept for
+members with at least 2 rounds paid and none missed, a $5 guarantee. Ngozi, Ada and Tolu each came in carrying the
+payment record from an earlier circle, so every row reads "4 rounds paid, none missed" on first load. Round 1 paid
+Ngozi when the circle filled (2026-10-03 09:51 UTC). Round 2 opens Sat 10 Oct 2026 about 09:51 UTC: the keeper pulls
+the standing orders and pays Ada the $15 pot. Check it any time:
+
+    bun run demo/check-circle.ts record 0xc4ae9c3734800075c13a7b850ddf771dcce9c0ce 3
+
+The circle is full, so it admits nobody new. To run your own with new members, open /new/.

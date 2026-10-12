@@ -28,7 +28,9 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { circleAbi, factoryAbi } from "../web/lib/abi";
+import { tabAbi, tabFactoryAbi } from "../web/lib/tab-abi";
 import { DEPLOYMENT, EARLIER_FACTORIES } from "../web/lib/deployment";
+import { TAB_DEPLOYMENT } from "../web/lib/tab-deployment";
 import type { Snapshot } from "../web/lib/chain";
 import { circleUrl, genericPng, genericPreview, isCircleId, pngFor, previewFor, shareHtml } from "./share";
 import { startTelegram } from "./telegram";
@@ -46,6 +48,8 @@ const DATA = path.join(ROOT, "relayer/data");
 const FACTORY = DEPLOYMENT.factory as Address;
 const FACTORIES = [FACTORY, ...(EARLIER_FACTORIES as readonly Address[])];
 const TOKEN = DEPLOYMENT.token as Address;
+const TAB_FACTORY = TAB_DEPLOYMENT.factory as Address;
+const PRACTICE_PER_TAB = 80_000_000n;
 
 const chain = { id: DEPLOYMENT.chainId, name: "Monad Testnet", nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 }, rpcUrls: { default: { http: [RPC] } } } as const;
 const { key } = JSON.parse(fs.readFileSync(path.join(ROOT, ".secrets/relayer.json"), "utf8")) as { key: Hex };
@@ -74,7 +78,12 @@ function serial<T>(job: () => Promise<T>): Promise<T> {
   return next;
 }
 
-type Call = { address: Address; abi: typeof circleAbi | typeof factoryAbi | typeof erc20Abi; functionName: string; args: readonly unknown[] };
+type Call = {
+  address: Address;
+  abi: typeof circleAbi | typeof factoryAbi | typeof tabAbi | typeof tabFactoryAbi | typeof erc20Abi;
+  functionName: string;
+  args: readonly unknown[];
+};
 
 /// Simulate, send with a gas limit 15% above the estimate (Monad charges the limit), and wait for a successful receipt.
 async function send(call: Call): Promise<{ hash: Hex; result: unknown; logs: readonly { address: Address; topics: readonly Hex[]; data: Hex }[] }> {
@@ -135,6 +144,15 @@ async function knownCircle(x: unknown): Promise<Address> {
   const c = addr(x);
   for (const f of FACTORIES) if (await pub.readContract({ address: f, abi: factoryAbi, functionName: "isCircle", args: [c] })) return c;
   throw new Error("not a grouppot circle");
+}
+
+async function knownTab(tab: Address) {
+  const n = await pub.readContract({ address: TAB_FACTORY, abi: tabFactoryAbi, functionName: "tabCount" });
+  for (let i = 0n; i < n; i++) {
+    const t = await pub.readContract({ address: TAB_FACTORY, abi: tabFactoryAbi, functionName: "tabs", args: [i] });
+    if (t.toLowerCase() === tab.toLowerCase()) return tab;
+  }
+  throw new Error("unknown tab");
 }
 
 const createdBy = new Map<string, number[]>();
@@ -261,6 +279,67 @@ const routes: Record<string, (b: Record<string, unknown>, ip: string) => Promise
       fs.writeFileSync(practiceFile, JSON.stringify(practiced, null, 1));
       log("practice", who, circle, amount, hash);
       return { hash, amount: amount.toString() };
+    } catch (e) {
+      delete practiced[k];
+      throw e;
+    }
+  },
+
+  async "tab/create"(b, _ip) {
+    const host = addr(b.host);
+    const name = String(b.name ?? "").trim();
+    if (!name) throw new Error("name the tab");
+    const itemLabels = b.itemLabels as string[];
+    const itemAmounts = (b.itemAmounts as string[]).map((x) => big(x));
+    const members = (b.members as string[]).map((x) => addr(x));
+    const labels = b.labels as string[];
+    const shares = (b.shares as string[]).map((x) => big(x));
+    const sim = await pub.simulateContract({
+      address: TAB_FACTORY,
+      abi: tabFactoryAbi,
+      functionName: "create",
+      args: [name, host, itemLabels, itemAmounts, members, labels, shares],
+      account,
+    });
+    const { hash } = await send({
+      address: TAB_FACTORY,
+      abi: tabFactoryAbi,
+      functionName: "create",
+      args: [name, host, itemLabels, itemAmounts, members, labels, shares],
+    });
+    const tab = sim.result as Address;
+    await knownTab(tab);
+    log("tab/create", name, tab, hash);
+    return { hash, tab };
+  },
+
+  async "tab/settle"(b, _ip) {
+    const tab = await knownTab(addr(b.tab));
+    const member = addr(b.member);
+    const sig = b.sig as SigIn;
+    if (!isSig(sig)) throw new Error("bad signature");
+    const { hash } = await send({
+      address: tab,
+      abi: tabAbi,
+      functionName: "settleShare",
+      args: [member, big(b.validAfter ?? 0), big(b.validBefore), b.nonce as Hex, sig.v, sig.r, sig.s],
+    });
+    log("tab/settle", tab, member, hash);
+    return { hash, tab };
+  },
+
+  async "tab/practice"(b, _ip) {
+    const who = addr(b.address).toLowerCase() as Address;
+    const tab = await knownTab(addr(b.tab));
+    const k = `${who}:${tab.toLowerCase()}`;
+    if (practiced[k]) throw new Error("practice dollars already added for this tab");
+    practiced[k] = "pending|0";
+    try {
+      const { hash } = await send({ address: TOKEN, abi: erc20Abi, functionName: "transfer", args: [who, PRACTICE_PER_TAB] });
+      practiced[k] = `${hash}|${PRACTICE_PER_TAB}`;
+      fs.writeFileSync(practiceFile, JSON.stringify(practiced, null, 1));
+      log("tab/practice", who, tab, hash);
+      return { hash, amount: PRACTICE_PER_TAB.toString() };
     } catch (e) {
       delete practiced[k];
       throw e;
